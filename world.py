@@ -60,7 +60,7 @@ class World:
         return world
 
     def return_land(self):
-        if self.land_tiles == None :
+        if self.land_tiles is None :
 
             self.land_tiles= [
                 (x, y)
@@ -68,10 +68,10 @@ class World:
                 for y in range(self.grid_height)
                 if self.map_grid[x][y] == "land"
             ]
-            return self.land_tiles
+        return self.land_tiles
 
     def return_water(self):
-        if self.water_tiles == None:
+        if self.water_tiles is None:
 
             self.water_tiles= [
             (x, y)
@@ -79,31 +79,41 @@ class World:
             for y in range(self.grid_height)
             if self.map_grid[x][y] == "water"
         ]
-            return self.water_tiles
+        return self.water_tiles
         
-
+    def set_maptypes(self):
+        self.land_tiles = self.return_land()
+        self.water_tiles = self.return_water()
+        self.shore_tiles = self.return_shore_tiles(self.land_tiles,self.water_tiles)
 
     def return_shore_tiles(self,land,water):
-        
-        shore = []
+        if self.shore_tiles is None:
+            self.shore_tiles = []
 
-        for x, y in land:
-            for dx in (-1, 0, 1):
-                for dy in (-1, 0, 1):
-                    if dx == 0 and dy == 0:
+            for x, y in land:
+                for dx in (-1, 0, 1):
+                    for dy in (-1, 0, 1):
+                        if dx == 0 and dy == 0:
+                            continue
+                        if (x + dx, y + dy) in water:
+                            self.shore_tiles.append((x, y))
+                            break
+                    else:
                         continue
-                    if (x + dx, y + dy) in water:
-                        shore.append((x, y))
-                        break
-                else:
-                    continue
-                break
-
-        return shore
+                    break
+        
+        return self.shore_tiles
+        
+   
     
-
     def is_walkable(self,x,y):
-         if self.map_grid[x][y] == "land":
+        if x < 0 or y < 0:
+            return False
+
+        if x >= self.grid_width or y >= self.grid_height:
+            return False
+        
+        if self.map_grid[x][y] == "land":
              return True
                 
                  
@@ -126,57 +136,43 @@ class World:
 
         return neighbors
 
-    def find_closest_veg(self, veg_list,x,y,perceptive_radius):
-        perceived_tiles =[ (dx, dy)
-                                    for dx 
-                                    for dy in range(-5, 6)
-                                    if not (dx == 0 and dy == 0)
-        ]
+    def find_closest_veg(self, veg_list,x,y,perceived_tiles):    
         target_veg = None
         min_distance = float("inf")
  
         for v in veg_list:
-                if v.status != "alive":
-                    continue
-                if (v.v_x, v.v_y) in adjacent_tiles:
+            if v.status == "alive":
+                if (v.v_x, v.v_y) in perceived_tiles:
                     dx = x - v.v_x
-                    dy = x- v.v_y
-                    distance = (dx * dx + dy * dy) ** 0.5
+                    dy = y- v.v_y
+                    distance = (dx * dx + dy * dy) 
 
                     if distance < min_distance:
                         min_distance = distance
-                        target_veg = (x, y)
+                        target_veg = (v.v_x, v.v_y)
                     
-                if target_veg:
-                    return target_veg
+        
+        return target_veg
                 
-        return False
+        
     
-    def find_closest_shore(self,x,y):
-        adjacent_tiles= self.get_neighbors(x,y)
+    def find_closest_shore(self,x,y,perceived_tiles):
         closest_shore = None
         min_distance = float("inf")
+        valid_tiles = [tile for tile in perceived_tiles if tile in self.return_shore_tiles(self.return_land(),self.return_water())]
 
-
-        valid_tiles = [tile for tile in adjacent_tiles if tile in self.shore_tiles]
-
-        for x, y in valid_tiles:
-            dx = x - self.x
-            dy = y - self.y
-            distance = (dx * dx + dy * dy) ** 0.5
+        for u, v in valid_tiles:
+            dx = x - u
+            dy = y - v
+            distance = (dx * dx + dy * dy) 
 
             if distance < min_distance:
                 min_distance = distance
-                closest_shore = (x, y)
+                closest_shore = (u, v)
 
-        if closest_shore:
-            return closest_shore
-            
-
-        
-
-
-    
+        return closest_shore
+       
+  
     def draw_map(self, screen):
         for x in range(self.grid_width):
             for y in range(self.grid_height):
@@ -192,3 +188,6 @@ class World:
                         self.tile_size
                     )
                 )
+    
+
+    
