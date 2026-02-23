@@ -1,6 +1,6 @@
 import random
 import pygame
-from noise import pnoise2
+from opensimplex import OpenSimplex
 
 
 class World:
@@ -20,17 +20,27 @@ class World:
         self.tile_size = tile_size
 
         self.noise_scale = noise_scale
-        self.noise_octaves = noise_octaves
-        self.noise_persistence = noise_persistence
-        self.noise_lacunarity = noise_lacunarity
 
+        # Seed handling
         self.seed = world_seed if world_seed is not None else random.randint(0, 10000)
 
+        # Create OpenSimplex generator
+        self.noise_gen = OpenSimplex(seed=self.seed)
+
+        # Generate map
         self.map_grid = self.generate_world()
 
-        self.land_tiles= None
+        # Cached tile groups
+        self.land_tiles = None
         self.water_tiles = None
-        self.shore_tiles= None
+        self.shore_tiles = None
+
+        # Precompute tile types
+        self.set_maptypes()
+
+    # --------------------------------------------------
+    # WORLD GENERATION
+    # --------------------------------------------------
 
     def generate_world(self):
         world = [
@@ -43,72 +53,66 @@ class World:
                 nx = x / self.noise_scale
                 ny = y / self.noise_scale
 
-                warp_x = pnoise2(nx + 100, ny + 100) * 8
-                warp_y = pnoise2(nx - 100, ny - 100) * 8
+                # Domain warping for better terrain shapes
+                warp = self.noise_gen.noise2(nx + 50, ny + 50) * 5
 
-                n = pnoise2(
-                    nx + warp_x,
-                    ny + warp_y,
-                    octaves=self.noise_octaves,
-                    persistence=self.noise_persistence,
-                    lacunarity=self.noise_lacunarity,
-                    base=self.seed
-                )
+                n = self.noise_gen.noise2(nx + warp, ny + warp)
 
-                world[x][y] = "water" if -0.15 < n < -0.05 else "land"
+                # Normalize from [-1, 1] → [0, 1]
+                n = (n + 1) / 2
+
+                # Water threshold
+                world[x][y] = "water" if 0.4 < n < 0.48 else "land"
 
         return world
 
-    def return_land(self):
-        if self.land_tiles == None :
+    # --------------------------------------------------
+    # TILE TYPE CACHING
+    # --------------------------------------------------
 
-            self.land_tiles= [
-                (x, y)
-                for x in range(self.grid_width)
-                for y in range(self.grid_height)
-                if self.map_grid[x][y] == "land"
-            ]
-            return self.land_tiles
+    def set_maptypes(self):
+        self.land_tiles = [
+            (x, y)
+            for x in range(self.grid_width)
+            for y in range(self.grid_height)
+            if self.map_grid[x][y] == "land"
+        ]
 
-    def return_water(self):
-        if self.water_tiles == None:
-
-            self.water_tiles= [
+        self.water_tiles = {
             (x, y)
             for x in range(self.grid_width)
             for y in range(self.grid_height)
             if self.map_grid[x][y] == "water"
-        ]
-            return self.water_tiles
-        
+        }
 
+        self.shore_tiles = self.compute_shore_tiles()
 
-    def return_shore_tiles(self,land,water):
-        
-        shore = []
+    def compute_shore_tiles(self):
+        shore = set()
 
-        for x, y in land:
+        for x, y in self.land_tiles:
             for dx in (-1, 0, 1):
                 for dy in (-1, 0, 1):
                     if dx == 0 and dy == 0:
                         continue
-                    if (x + dx, y + dy) in water:
-                        shore.append((x, y))
+
+                    if (x + dx, y + dy) in self.water_tiles:
+                        shore.add((x, y))
                         break
                 else:
                     continue
                 break
 
         return shore
-    
 
-    def is_walkable(self,x,y):
-         if self.map_grid[x][y] == "land":
-             return True
-                
-                 
-                 
-            
+    # --------------------------------------------------
+    # UTILITIES
+    # --------------------------------------------------
+
+    def is_walkable(self, x, y):
+        if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
+            return self.map_grid[x][y] == "land"
+        return False
 
     def get_neighbors(self, x, y):
         offsets = [
@@ -120,68 +124,66 @@ class World:
 
         for dx, dy in offsets:
             nx, ny = x + dx, y + dy
-
             if 0 <= nx < self.grid_width and 0 <= ny < self.grid_height:
                 neighbors.append((nx, ny))
 
         return neighbors
 
-    def find_closest_veg(self, veg_list,x,y,perceptive_radius):
-        perceived_tiles =[ (dx, dy)
-                                    for dx 
-                                    for dy in range(-5, 6)
-                                    if not (dx == 0 and dy == 0)
-        ]
+    # --------------------------------------------------
+    # SEARCH FUNCTIONS
+    # --------------------------------------------------
+
+    def find_closest_veg(self, veg_list, x, y, perceived_tiles):
         target_veg = None
         min_distance = float("inf")
- 
-        for v in veg_list:
-                if v.status != "alive":
-                    continue
-                if (v.v_x, v.v_y) in adjacent_tiles:
-                    dx = x - v.v_x
-                    dy = x- v.v_y
-                    distance = (dx * dx + dy * dy) ** 0.5
 
-                    if distance < min_distance:
-                        min_distance = distance
-                        target_veg = (x, y)
-                    
-                if target_veg:
-                    return target_veg
-                
-        return False
-    
-    def find_closest_shore(self,x,y):
-        adjacent_tiles= self.get_neighbors(x,y)
+        perceived_set = set(perceived_tiles)
+
+        for v in veg_list:
+            if v.status == "alive" and (v.v_x, v.v_y) in perceived_set:
+                dx = x - v.v_x
+                dy = y - v.v_y
+                distance = dx * dx + dy * dy
+
+                if distance < min_distance:
+                    min_distance = distance
+                    target_veg = v
+
+        print("veg:", target_veg.status if target_veg is not None else "none")
+        return target_veg
+
+    def find_closest_shore(self, x, y, perceived_tiles):
         closest_shore = None
         min_distance = float("inf")
 
+        for u, v in perceived_tiles:
+            if (u, v) in self.shore_tiles:
+                dx = x - u
+                dy = y - v
+                distance = dx * dx + dy * dy
 
-        valid_tiles = [tile for tile in adjacent_tiles if tile in self.shore_tiles]
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_shore = (u, v)
 
-        for x, y in valid_tiles:
-            dx = x - self.x
-            dy = y - self.y
-            distance = (dx * dx + dy * dy) ** 0.5
+        print("closest shore:", closest_shore)
+        return closest_shore
 
-            if distance < min_distance:
-                min_distance = distance
-                closest_shore = (x, y)
+    # --------------------------------------------------
+    # DRAWING
+    # --------------------------------------------------
 
-        if closest_shore:
-            return closest_shore
-            
-
-        
-
-
-    
     def draw_map(self, screen):
         for x in range(self.grid_width):
             for y in range(self.grid_height):
-                tile = self.map_grid[x][y]
-                color = (30, 90, 160) if tile == "water" else (40, 160, 60)
+
+                if (x, y) in self.shore_tiles:
+                    color = (194, 178, 128)  # sandy
+                elif self.map_grid[x][y] == "water":
+                    color = (30, 90, 160)
+                else:
+                    color = (40, 160, 60)
+
                 pygame.draw.rect(
                     screen,
                     color,
