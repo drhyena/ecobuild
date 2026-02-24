@@ -3,10 +3,11 @@ class Veg:
     def __init__(self, v_x, v_y):
         self.v_x = v_x
         self.v_y = v_y
-        self.status = "alive"
+        self.alive = True
+        self.claimed_by = None
 
     def draw(self, screen, TILE_SIZE):
-        if self.status == "alive":
+        if self.alive == True :
             pygame.draw.circle(
                 screen,
                 (255, 0, 0),

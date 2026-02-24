@@ -30,7 +30,7 @@ def astar(start, goal, grid, grid_width, grid_height):
         x, y = current
      
 
-        for dx, dy in [(0,1), (1,0), (0,-1), (-1,0),(-1,1),(1,1)]:
+        for dx, dy in [(0,1), (1,0), (0,-1), (-1,0),(-1,1),(1,1),(1,-1),(-1,-1)]:
             nx, ny = x + dx, y + dy
 
             if 0 <= nx < grid_width and 0 <= ny < grid_height:
