@@ -7,10 +7,10 @@ gc.disable()
 
 
 class Creature:
-    def __init__(self, x, y,world):
+    def __init__(self, x, y,interaction_manager):
         self.x, self.y = x, y
         self.thirst = 100
-        self.hunger = 30
+        self.hunger = 100
         self.target = None
         self.target_veg = None
         self.path = []
@@ -22,6 +22,9 @@ class Creature:
                                     if not (dx == 0 and dy == 0)
         ]
         self.perceived_tiles = []
+        self.signal = {"type": None, "from":None,"tile": None}
+        self.interaction_manager= interaction_manager
+        self.iq = 0.0
     
     
 
@@ -35,41 +38,48 @@ class Creature:
                 self.thirst = 100
             
     def eat_veg(self):
-        if self.status in ("hungry"):
-            print("eating")
+        if self.status == "hungry":
             self.hunger = 100
+            self.target_veg.alive = False
     
-    def drink_water(self,closest_shore):
-        if (self.x,self.y) == closest_shore:
-            self.thirst == 100
+    
             
    
                      
 # state machine core. This area is the "brain" of the creature. 
     def update(self,world,interactionmanager,veg_list,creature_list):
         self.hunger =self.hunger -1
-        self.thirst = self.thirst -3
+        self.thirst = self.thirst -2
         if not self.target: 
-            if self.hunger<20:
+            if self.thirst<30:
+                self.status = "thirsty"
+            elif self.hunger<20:
                 self.status = "hungry"
-
             else:
                 self.status = "wandering"
+        print("thirst",self.thirst,"hunger:",self.hunger)
+
         self.update_perceived_tiles(world)
         
        
         if interactionmanager.is_on_target(self):
             if self.status == "hungry":
-                self.hunger = 100
-                interactionmanager.kill_veg(self.target_veg,veg_list)
-                self.target_veg = None
-            if self.status == "thirsty":
-                print("Thirst restored")
-                self.thirst = 100
+                if self.target_veg and self.target_veg.alive:
+                    # If nobody claimed it yet
+                    if self.target_veg.claimed_by is None:
+                        self.target_veg.claimed_by = self
+                        self.eat_veg()
+                        interactionmanager.kill_veg(self.target_veg,veg_list,creature_list)
+                        
+            if self.status == "thirsty":            
+                self.drink_water()
            
-        if self.hunger ==0 and self.thirst == 0:
+        if self.hunger <=0 or self.thirst <= 0:
             interactionmanager.kill_creature(self,creature_list)
             
+    def creature_receive_signal(self,from_,tile,):
+        self.signal= {"type":type,"from": from_,"tile":tile}
+               
 
                
     def update_perceived_tiles(self, world):
@@ -87,7 +97,7 @@ class Creature:
             self.update_perceived_tiles(world)
             self.target_veg = world.find_closest_veg(veg,self.x,self.y,self.perceived_tiles)
             if self.target_veg is not None:
-                if interactionmanager.veg_is_being_targeted(self,creature_list):
+                if not interactionmanager.veg_is_being_targeted(self,creature_list):
                     self.target = (self.target_veg.v_x,self.target_veg.v_y)
             else:
                 self.target = None
@@ -102,6 +112,7 @@ class Creature:
         
 
     def movement_decider(self,world,screen):
+        
         if self.target is None:
             print("target and path no")
             self.wander_randomly(world)
@@ -123,6 +134,8 @@ class Creature:
         dx, dy = random.choice(world.get_neighbors(self.x,self.y))
         if world.is_walkable(dx,dy):
                 self.x, self.y = dx, dy
+
+   
                                            
     def set_path(self,world):
         if self.target:      
@@ -170,3 +183,75 @@ class Creature:
         screen.blit(text, (self.x * tile_size, self.y * tile_size - 10))
 
 
+    def apply_best_tile_decision(self):
+        """
+        Strict version:
+        - Success → best_tile
+        - Failure → adjacent to best_tile (not ahead)
+        - No fallback logic
+        """
+
+        best_tile = self.best_tile
+        cx, cy = self.x, self.y
+
+        if best_tile is None:
+            return
+
+        # SUCCESS
+        if random.random() < self.iq_ratio:
+            self.target = best_tile
+            return
+
+        # FAILURE
+        bx, by = best_tile
+
+        # Relative direction from creature → best_tile
+        step = (bx - cx, by - cy)
+
+        # Tile that continues same direction (relative "ahead")
+        overshoot_tile = (bx + step[0], by + step[1])
+
+        candidates = [
+            tile for tile in self.world.get_neighbors(bx, by)
+            if tile != overshoot_tile
+            and self.world.is_walkable(tile[0], tile[1])
+        ]
+
+        if candidates:
+            self.target = random.choice(candidates)
+
+class Prey(Creature):
+    def __init__(self, x, y, world):
+        super().__innit__(self,x,y,world)
+        self.active_predator = None
+        self.iq = 0.4
+
+
+    def flee(self, predator, world,interactionmanager):
+        best_tile = world.compute_best_flee_tile(self,self.targeted_by)
+        
+        interactionmanager.send_best_tile(self.targeted_by,best_tile)
+
+
+
+
+
+
+class Predator(Creature):
+    def __init__(self, x, y, world):
+        super().__innit__(self,x,y,world)
+        self.target_creature = None
+        self.iq = 0.7
+    
+    def find_creature(self,creature_list,world):
+        self.target_creature = world.findcreaturetarget(self,creature_list)
+    
+    def compute_dynamic_tile(self):
+        if random.random() < self.iq
+        
+
+
+    def follow_prey(self):
+
+        if self.target_creature:
+            pass

@@ -140,7 +140,7 @@ class World:
         perceived_set = set(perceived_tiles)
 
         for v in veg_list:
-            if v.status == "alive" and (v.v_x, v.v_y) in perceived_set:
+            if v.alive and (v.v_x, v.v_y) in perceived_set:
                 dx = x - v.v_x
                 dy = y - v.v_y
                 distance = dx * dx + dy * dy
@@ -149,7 +149,7 @@ class World:
                     min_distance = distance
                     target_veg = v
 
-        print("veg:", target_veg.status if target_veg is not None else "none")
+        print("veg:", target_veg.alive if target_veg is not None else "none")
         return target_veg
 
     def find_closest_shore(self, x, y, perceived_tiles):
@@ -169,6 +169,28 @@ class World:
         print("closest shore:", closest_shore)
         return closest_shore
 
+    def findcreaturetarget(self, c, creature_list):
+        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
+
+        if not perceived_creatures:
+            return None
+
+        closest_creature = None
+        min_distance = float('inf')
+
+        for other in perceived_creatures:
+            if other == c:
+                continue  # don't target itself
+
+            dx = other.x - c.x
+            dy = other.y - c.y
+            distance = dx * dx + dy * dy  # squared distance (faster than sqrt)
+
+            if distance < min_distance:
+                min_distance = distance
+                closest_creature = other
+
+        return closest_creature
     # --------------------------------------------------
     # DRAWING
     # --------------------------------------------------
