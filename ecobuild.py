@@ -30,8 +30,8 @@ def create_creatures_random(n):
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
 
-vege = create_veg_random(20)
-creatures = create_creatures_random(5)
+vege = create_veg_random(100)
+creatures = create_creatures_random(10)
 
 
 # MAIN GAME LOOP    
@@ -45,7 +45,7 @@ while running:
             running = False
             
     world.draw_map(screen)
-    #calling all creature related functions.
+    #calling all creature related functions.5
     for c in creatures:
         c.update(world,interactmanager,vege,creatures)
     for c in creatures:   

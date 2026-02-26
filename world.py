@@ -169,7 +169,7 @@ class World:
         print("closest shore:", closest_shore)
         return closest_shore
 
-    def findcreaturetarget(self, c, creature_list):
+    def find_closest_prey(self, c, creature_list):
         perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
 
         if not perceived_creatures:
@@ -191,9 +191,31 @@ class World:
                 closest_creature = other
 
         return closest_creature
+    
+    def compute_best_flee_tile(self, prey, predator):
+        if predator is None:
+            return None
+
+        neighbors = self.get_neighbors(prey.x, prey.y)
+
+        best_tile = None
+        max_dist = -1
+
+        for nx, ny in neighbors:
+            if self.is_walkable(nx, ny):
+                dx = nx - predator.x
+                dy = ny - predator.y
+                dist = dx * dx + dy * dy
+
+                if dist > max_dist:
+                    max_dist = dist
+                    best_tile = (nx, ny)
+
+        return best_tile
     # --------------------------------------------------
     # DRAWING
-    # --------------------------------------------------
+    # ----------------------------------------
+    # ----------
 
     def draw_map(self, screen):
         for x in range(self.grid_width):

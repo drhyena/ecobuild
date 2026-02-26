@@ -25,13 +25,6 @@ class InteractionSystem:
         predator.predator_receive_signal("target_tile","prey",best_tile)
         
 
-        
-        
-
-            
-
-
-
     def veg_is_being_targeted(self, c, creature_list):
         if c.target_veg is None:
             return False
