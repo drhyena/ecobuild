@@ -1,4 +1,4 @@
-ā# EcoBuild
+# EcoBuild
 
 EcoBuild is a simple 2D predator--prey simulation built using Python and
 Pygame.
