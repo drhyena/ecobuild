@@ -1,4 +1,3 @@
-
 # c is the creature which calls the functions.
 
 
@@ -18,13 +17,13 @@ class InteractionSystem:
                 perceived_creatures.append(c)
         return perceived_creatures
     
-    
+    def if_any_creature_in_perspective_tiles(self,c1,c2):
+        if (c2.x,c2.y) in c1.perceived_tiles:
+            return True
 
+    def create_new_creature(self,c):
+        pass        
     
-    def send_best_tile(self,best_tile,predator):
-        predator.predator_receive_bestile(best_tile)
-        
-
     def veg_is_being_targeted(self, c, creature_list):
         if c.target_veg is None:
             return False
@@ -55,8 +54,6 @@ class InteractionSystem:
             creature_list.remove(creature)
        
 
-        
-   
     def notify_prey(self,predator,prey):
             prey.get_predator(predator)
         
@@ -64,10 +61,3 @@ class InteractionSystem:
     def is_on_target_creature(self,prey,predator):
         if (prey.x,prey.y) == (predator.x,predator.y):
             return True
-
-    
-    
-
-             
-             
-             

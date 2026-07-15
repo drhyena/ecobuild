@@ -116,6 +116,3 @@ class Prey(Creature):
             if self.path:
                 
                 self.follow_path(screen, world.tile_size)
-                
-                
-    
