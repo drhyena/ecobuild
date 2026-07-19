@@ -80,7 +80,7 @@ while running:
         v.draw(screen, TILE_SIZE)
 
     pygame.display.flip()
-    clock.tick(1)
+    clock.tick(5)
     print("Frame time:", time.time() - start)
 
 pygame.quit()

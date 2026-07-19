@@ -30,10 +30,22 @@ class Creature:
         self.species = "creature"
         self.prev_x, self.prev_y = self.x, self.y
 
+        #log attributes. Additional data
+        self.times_drank = 0
+        self.creatures_killed=0
+        self.times_ate=0
+
         # time attributes
         self.birth_time = pygame.time.get_ticks()
         self.retarget_interval = 5000
         self.last_retarget_time = pygame.time.get_ticks()
+
+        #reproduction_attributes
+        self.reproductive_interval = 10000
+        self.seeking_mate = False
+        self.ready_to_mate = False
+        self.time_since_last_mating = 0
+
 
     # -------------------------
     # ACTIONS
@@ -63,10 +75,18 @@ class Creature:
         if not self.alive:
             print(self, "died while", self.status)
 
+    def check_if_ready_for_a_mate(self):
+        if self.time_since_last_mating == self.reproductive_interval:
+            if self.times_ate > 0 and self.times_drank >0 :
+                return True
+
+
     def update_needs(self):
         self.hunger -= 1
         self.thirst -= 2
-        pass
+        # checks if ready to mate,  
+        
+            
 
     def update_state(self):
         if not self.target:
@@ -104,7 +124,8 @@ class Creature:
         self.drink_water()
 
     def check_death(self, creature_list):
-        if self.hunger <= -20 and self.thirst <= 0:
+        if self.hunger <= -20 or self.thirst <= 0:
+            print(f"{self} died at hunger:{self.hunger}")
             self.interaction_manager.kill_creature(self, creature_list)
 
     # -------------------------
