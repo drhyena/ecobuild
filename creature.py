@@ -3,14 +3,12 @@ import pygame
 import math
 import gc
 from astar import *
-gc.disable()
+from CreatureData import Vitals
 
 
 class Creature:
-    def __init__(self, x, y, interaction_manager):
+    def __init__(self, x, y, interaction_manager, vitals = None, genome = None ):
         self.x, self.y = x, y
-        self.thirst = 100
-        self.hunger = 100
         self.target = None
         self.target_veg = None
         self.path = []
@@ -21,6 +19,7 @@ class Creature:
             for dy in range(-10, 11)
             if not (dx == 0 and dy == 0)
         ]
+        
         self.perceived_tiles = []
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
@@ -59,7 +58,7 @@ class Creature:
     def eat_veg(self):
         if self.status == "hungry":
             self.hunger = 100
-            self.target_veg.alive = False
+            
 
     # -------------------------
     # STATE MACHINE CORE
@@ -87,15 +86,22 @@ class Creature:
         # checks if ready to mate,  
         
             
-
+    def check_essentials(self):
+        return {"hungry": max(0,(30-self,self.thirst/30)), 
+                "thirsty":max(0,(20,self.hunger)/20),
+                "wandering":0.05}
+        
+    def get_essential_state_decision(self):
+        return max(self.check_essentials(),key=dict.get)
+        
+        
+        
+            
     def update_state(self):
-        if not self.target:
-            if self.thirst < 30:
-                self.status = "thirsty"
-            elif self.hunger < 20:
-                self.status = "hungry"
-            else:
-                self.status = "wandering"
+        #Split into two - essential and non - essential. Essentials will include hunger and thirst and the like 
+        #Non essentials will include reporduction and the like. Non essentials will require essentials to be fullfilled.
+        #ESSENTIALS
+        self.status = self.get_essential_state_decision()
 
     def resolve_interaction(self, veg_list, creature_list):
         if self.interaction_manager.is_on_target(self):

@@ -41,6 +41,7 @@ class InteractionSystem:
     
     def kill_veg(self, veg, veg_list, creature_list):
         if veg in veg_list:
+            veg.alive = False
             veg_list.remove(veg)
 
         # Remove from any creature targeting it
