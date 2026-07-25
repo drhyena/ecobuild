@@ -10,9 +10,6 @@ from astarmanager import *
 import time
 from Predator import Predator
 from Prey import Prey
-import gc
-
-gc.disable()
 
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT)) 
@@ -27,6 +24,7 @@ interactmanager = InteractionSystem(world)
 astarmanager = Astarmanager()
 # Creating Creature and Vegetation objects
 world.set_maptypes()
+
 def create_creatures_random(num_predators, num_prey):
 
     predators = [
@@ -41,19 +39,18 @@ def create_creatures_random(num_predators, num_prey):
 
     creatures = predators + prey
 
-    return predators,prey, creatures
+    return predators, prey, creatures
 
-
-
+predators, preys, creatures = create_creatures_random(1, 5)
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
 
 vege = create_veg_random(15)
-predators,preys,creatures = create_creatures_random(2,10
-                                                    )
 
-
+#veg spawning
+VEG_SPAWN_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(VEG_SPAWN_EVENT, 5000)
 # MAIN GAME LOOP    
 running = True
 while running:
@@ -63,16 +60,18 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-            
+        if event.type == VEG_SPAWN_EVENT:
+            vege.append(Veg(*random.choice(tuple(world.land_tiles))))  
+            print("veg spawned") 
+    
     world.draw_map(screen)
-    #calling all creature related functions.5
+    #calling all creature related functions.
     for c in creatures:
-        c.update(world,vege,creatures)
+        c.update(world, vege, creatures)
     for c in creatures:   
-        c.status_checker(world,vege,creatures)    
+        c.status_checker(world, vege, creatures)    
     for c in creatures:       
-        c.movement_decider(world,screen)
-    print("c")
+        c.movement_decider(world, screen)
     for c in creatures:       
         c.draw(screen, TILE_SIZE)
 
@@ -81,7 +80,7 @@ while running:
         v.draw(screen, TILE_SIZE)
 
     pygame.display.flip()
-    clock.tick(1)
+    clock.tick(5)
     print("Frame time:", time.time() - start)
 
 pygame.quit()

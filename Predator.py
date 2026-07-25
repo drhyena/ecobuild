@@ -92,15 +92,13 @@ class Predator(Creature):
 
     def status_checker(self, world, veg, creature_list):
 
+      
         if self.status == "hungry":
             self.handle_hungry_state(world, creature_list)
-
         elif self.status == "thirsty":
             self.handle_thirsty_state(world)
-
         elif self.status == "hunting":
             self.handle_hunting_state(world)
-            
 
         else:
             self.target = None
@@ -126,11 +124,22 @@ class Predator(Creature):
             self.target = None
             return
 
+        test_path = astar(
+            (self.x, self.y),
+            (self.target_creature.x, self.target_creature.y),
+            self.world.map_grid,
+            self.world.grid_width,
+            self.world.grid_height
+        )
+
+        if not test_path:
+            self.target_creature = None
+            self.target = None
+            return
+        
+        
         # Inform prey it is being hunted
         self.notify_prey()
-
-        
-
 
     # -------------------------
     # ACTIVE HUNTING
@@ -139,6 +148,13 @@ class Predator(Creature):
 
     def handle_hunting_state(self, world):
 
+        now = pygame.time.get_ticks()
+        if now - self.last_retarget_time >= self.retarget_interval:
+            self.last_retarget_time = now
+            self.target_creature = None
+            self.target = None
+            self.path = []
+        
         if not self.target_creature or not self.target_creature.alive:
             self.target_creature = None
             self.target = None
@@ -215,6 +231,4 @@ class Predator(Creature):
         screen.blit(
             text,
             (self.x * tile_size, self.y * tile_size - 10),
-        )    
-        
-        
+        )
