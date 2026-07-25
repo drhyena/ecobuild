@@ -1,0 +1,5 @@
+. Creature fills needs.
+. Creature seeks mate.
+. Creature finds mate.
+. Creature waits till its truly ready to mate.
+. Creature mates
