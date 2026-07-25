@@ -2,24 +2,12 @@ import random
 import pygame
 import math
 from astar import *
-<<<<<<< HEAD
 from CreatureData import Vitals, Genome, Targeting, Reproduction
 
 
 class Creature:
-    def __init__(self, x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction = None):
+    def __init__(self, x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
         self.x, self.y = x, y
-=======
-from CreatureData import Vitals
-
-
-class Creature:
-    def __init__(self, x, y, interaction_manager, vitals = None, genome = None ):
-        self.x, self.y = x, y
-        self.target = None
-        self.target_veg = None
-        self.path = []
->>>>>>> ec7c2f0e425db93345eb5283b17ee9c99886f859
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -29,19 +17,14 @@ class Creature:
         self.targeting.target = None
         self.targeting.target_veg = None
         self.targeting.path = []
-        self.genome.perceptive_radius = [
+        self.targeting.perceptive_radius = [
             (dx, dy)
             for dx in range(-10, 11)
             for dy in range(-10, 11)
             if not (dx == 0 and dy == 0)
         ]
-<<<<<<< HEAD
         self.targeting.perceived_tiles = []
 
-=======
-        
-        self.perceived_tiles = []
->>>>>>> ec7c2f0e425db93345eb5283b17ee9c99886f859
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
         self.world = None
@@ -77,13 +60,8 @@ class Creature:
 
     def eat_veg(self):
         if self.status == "hungry":
-<<<<<<< HEAD
             self.vitals.hunger = 100
             self.times_ate += 1
-=======
-            self.hunger = 100
-            
->>>>>>> ec7c2f0e425db93345eb5283b17ee9c99886f859
 
     # -------------------------
     # STATE MACHINE CORE
@@ -105,7 +83,6 @@ class Creature:
                 return True
 
     def update_needs(self):
-<<<<<<< HEAD
         self.vitals.hunger -= 1
         self.vitals.thirst -= 2
 
@@ -124,28 +101,6 @@ class Creature:
         # Split into two - essential and non-essential. Essentials will include hunger and thirst and the like.
         # Non-essentials will include reproduction and the like. Non-essentials will require essentials to be fulfilled.
         # ESSENTIALS
-=======
-        self.hunger -= 1
-        self.thirst -= 2
-        # checks if ready to mate,  
-        
-            
-    def check_essentials(self):
-        return {"hungry": max(0,(30-self,self.thirst/30)), 
-                "thirsty":max(0,(20,self.hunger)/20),
-                "wandering":0.05}
-        
-    def get_essential_state_decision(self):
-        return max(self.check_essentials(),key=dict.get)
-        
-        
-        
-            
-    def update_state(self):
-        #Split into two - essential and non - essential. Essentials will include hunger and thirst and the like 
-        #Non essentials will include reporduction and the like. Non essentials will require essentials to be fullfilled.
-        #ESSENTIALS
->>>>>>> ec7c2f0e425db93345eb5283b17ee9c99886f859
         self.status = self.get_essential_state_decision()
 
     def resolve_interaction(self, veg_list, creature_list):

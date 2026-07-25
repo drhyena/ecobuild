@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 from dataclasses import dataclass, field
 
 @dataclass
@@ -36,7 +36,7 @@ class Genome:
     
     
     
-=======
+
 from dataclasses import dataclass
 
 @dataclass
@@ -53,4 +53,4 @@ class Vitals:
 @dataclass
 class Genome:
     pass
->>>>>>> ec7c2f0e425db93345eb5283b17ee9c99886f859
+
