@@ -173,6 +173,7 @@ class World:
         perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
 
         if not perceived_creatures:
+            print("no perceived creatures")
             return None
 
         closest_creature = None
@@ -199,8 +200,6 @@ class World:
         visible_creatures = []
 
         # Ensure creature has perceived tiles
-        if not hasattr(creature, "perceived_tiles"):
-            return visible_creatures
 
         for other in creature_list:
 
@@ -213,7 +212,7 @@ class World:
                 continue
 
             # If other creature is inside perspective
-            if (other.x, other.y) in creature.perceived_tiles:
+            if (other.x, other.y) in creature.targeting.perceived_tiles:
                 visible_creatures.append(other)
 
         return visible_creatures
