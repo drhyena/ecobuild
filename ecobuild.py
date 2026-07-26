@@ -6,7 +6,6 @@ from world import World
 from veg import Veg
 from creature import Creature
 from interactions import *
-from astarmanager import *
 import time
 from Predator import Predator
 from Prey import Prey
@@ -21,7 +20,6 @@ world = World(GRID_WIDTH, GRID_HEIGHT, TILE_SIZE,NOISE_SCALE, NOISE_OCTAVES,
     WORLD_SEED)
 interactmanager = InteractionSystem(world)
 
-astarmanager = Astarmanager()
 # Creating Creature and Vegetation objects
 world.set_maptypes()
 
@@ -41,7 +39,7 @@ def create_creatures_random(num_predators, num_prey):
 
     return predators, prey, creatures
 
-predators, preys, creatures = create_creatures_random(1, 5)
+predators, preys, creatures = create_creatures_random(5, 25)
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
