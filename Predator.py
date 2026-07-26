@@ -5,8 +5,9 @@ class Predator(Creature):
     def __init__(self, x, y, interaction_manager):
         super().__init__(x, y, interaction_manager)
         self.species = "predator"
-        self.target_creature = None
-        self.iq = 0.7
+        self.genome.iq = 0.7
+        self.genome.hunger_threshold = 50
+        self.genome.thirst_threshold = 30
 
 
     # -------------------------
@@ -16,15 +17,15 @@ class Predator(Creature):
     def update_state(self):
 
         # If actively hunting
-        if self.target_creature:
+        if self.targeting.target_creature:
             self.status = "hunting"
             return
 
         # Normal need-based logic
-        if not self.target:
-            if self.thirst < 30:
+        if not self.targeting.target:
+            if self.vitals.thirst < self.genome.thirst_threshold:
                 self.status = "thirsty"
-            elif self.hunger < 50:
+            elif self.vitals.hunger < self.genome.hunger_threshold:
                 self.status = "hungry"
             else:
                 self.status = "wandering"
@@ -48,30 +49,31 @@ class Predator(Creature):
 
         # Ensure we are actually on the prey
         if (
-            self.target_creature
-            and self.target_creature.alive
+            self.targeting.target_creature
+            and self.targeting.target_creature.alive
             and self.interaction_manager.is_on_target_creature(
-                self.target_creature, self
+                self.targeting.target_creature, self
             )
-            and self.target_creature.targetted_by == self
+            and self.targeting.target_creature.targeting.targeted_by == self
         ):
             self.eat_prey()
 
             self.interaction_manager.kill_creature(
-                self.target_creature,
+                self.targeting.target_creature,
                 creature_list
             )
 
             # Clear hunt lock
-            self.target_creature = None
-            self.target = None
-            self.path = []
+            self.targeting.target_creature = None
+            self.targeting.target = None
+            self.targeting.path = []
 
 
     def eat_prey(self):
         if self.status in ["hungry", "hunting"]:
-            self.hunger = 100
-            self.target_creature.alive = False
+            self.vitals.hunger = 100
+            self.times_ate += 1
+            self.targeting.target_creature.alive = False
 
 
     # -------------------------
@@ -79,10 +81,10 @@ class Predator(Creature):
     # -------------------------
 
     def notify_prey(self):
-        if self.target_creature:
+        if self.targeting.target_creature:
             self.interaction_manager.notify_prey(
                 self,
-                self.target_creature
+                self.targeting.target_creature
             )
 
 
@@ -101,7 +103,7 @@ class Predator(Creature):
             self.handle_hunting_state(world)
 
         else:
-            self.target = None
+            self.targeting.target = None
 
 
     # -------------------------
@@ -110,31 +112,32 @@ class Predator(Creature):
 
     def handle_hungry_state(self, world, creature_list):
 
-        if self.target_creature or self.target:
+        if self.targeting.target_creature or self.targeting.target:
             return
 
         self.update_perceived_tiles(world)
 
-        self.target_creature = world.find_closest_prey(
+        self.targeting.target_creature = world.find_closest_prey(
             self,
             creature_list
         )
 
-        if self.target_creature is None:
-            self.target = None
+        if self.targeting.target_creature is None:
+            self.targeting.target = None
+            print("predator's prey none")
             return
 
         test_path = astar(
             (self.x, self.y),
-            (self.target_creature.x, self.target_creature.y),
+            (self.targeting.target_creature.x, self.targeting.target_creature.y),
             self.world.map_grid,
             self.world.grid_width,
             self.world.grid_height
         )
 
         if not test_path:
-            self.target_creature = None
-            self.target = None
+            self.targeting.target_creature = None
+            self.targeting.target = None
             return
         
         
@@ -151,16 +154,16 @@ class Predator(Creature):
         now = pygame.time.get_ticks()
         if now - self.last_retarget_time >= self.retarget_interval:
             self.last_retarget_time = now
-            self.target_creature = None
-            self.target = None
-            self.path = []
+            self.targeting.target_creature = None
+            self.targeting.target = None
+            self.targeting.path = []
         
-        if not self.target_creature or not self.target_creature.alive:
-            self.target_creature = None
-            self.target = None
+        if not self.targeting.target_creature or not self.targeting.target_creature.alive:
+            self.targeting.target_creature = None
+            self.targeting.target = None
             return
 
-        target_creature = self.target_creature
+        target_creature = self.targeting.target_creature
 
         # --- Compute velocity of prey ---
         vx = target_creature.x - target_creature.prev_x
@@ -190,15 +193,15 @@ class Predator(Creature):
                 best_score = dist
                 best_tile = (nx, ny)
 
-        self.target = best_tile
+        self.targeting.target = best_tile
         
     def hunting_movement(self):
-        self.prev_x, self.prev_y = self.x,self.y
-        self.x,self.y = self.target
+        self.prev_x, self.prev_y = self.x, self.y
+        self.x, self.y = self.targeting.target
         
     def movement_decider(self, world, screen):
 
-        if self.target is None:
+        if self.targeting.target is None:
            
             self.wander_randomly(world)
         elif self.status == "hunting":
@@ -206,12 +209,12 @@ class Predator(Creature):
         else:
            
 
-            if not self.path:
+            if not self.targeting.path:
                
                 self.set_path(world)
                 return
 
-            if self.path:
+            if self.targeting.path:
                 
                 self.follow_path(screen, world.tile_size)
        
