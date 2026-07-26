@@ -16,8 +16,10 @@ class Creature:
 
         self.targeting.target = None
         self.targeting.target_veg = None
+        self.targeting.target_creature = None
+        self.targeting.targeted_by = None
         self.targeting.path = []
-        self.targeting.perceptive_radius = [
+        self.genome.perceptive_radius = [
             (dx, dy)
             for dx in range(-10, 11)
             for dy in range(-10, 11)
@@ -41,12 +43,6 @@ class Creature:
         self.birth_time = pygame.time.get_ticks()
         self.retarget_interval = 5000
         self.last_retarget_time = pygame.time.get_ticks()
-
-        # reproduction attributes
-        self.reproductive_interval = 10000
-        self.seeking_mate = False
-        self.ready_to_mate = False
-        self.time_since_last_mating = 0
 
     # -------------------------
     # ACTIONS
@@ -78,7 +74,7 @@ class Creature:
             print(self, "died while", self.status)
 
     def check_if_ready_for_a_mate(self):
-        if self.time_since_last_mating == self.reproductive_interval:
+        if self.reproduction.time_since_last_mating == self.reproduction.reproductive_interval:
             if self.times_ate > 0 and self.times_drank > 0:
                 return True
 
@@ -149,7 +145,7 @@ class Creature:
         self.targeting.perceived_tiles.clear()
         self.targeting.perceived_tiles = [
             (self.x + dx, self.y + dy)
-            for dx, dy in self.targeting.perceptive_radius
+            for dx, dy in self.genome.perceptive_radius
             if 0 <= self.x + dx < world.grid_width
             and 0 <= self.y + dy < world.grid_height
         ]
