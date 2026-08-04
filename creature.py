@@ -45,22 +45,7 @@ class Creature:
         self.last_retarget_time = pygame.time.get_ticks()
 
     # -------------------------
-    # ACTIONS
-    # -------------------------
-
-    def drink_water(self):
-        if self.status == "thirsty":
-            print("drinking")
-            self.vitals.thirst = 100
-            self.times_drank += 1
-
-    def eat_veg(self):
-        if self.status == "hungry":
-            self.vitals.hunger = 100
-            self.times_ate += 1
-
-    # -------------------------
-    # STATE MACHINE CORE
+    # MAIN UPDATE LOOP
     # -------------------------
 
     def update(self, world, veg_list, creature_list):
@@ -73,10 +58,9 @@ class Creature:
         if not self.alive:
             print(self, "died while", self.status)
 
-    def check_if_ready_for_a_mate(self):
-        if self.reproduction.time_since_last_mating == self.reproduction.reproductive_interval:
-            if self.times_ate > 0 and self.times_drank > 0:
-                return True
+    # -------------------------
+    # VITALS / NEEDS
+    # -------------------------
 
     def update_needs(self):
         self.vitals.hunger -= 1
@@ -98,6 +82,30 @@ class Creature:
         # Non-essentials will include reproduction and the like. Non-essentials will require essentials to be fulfilled.
         # ESSENTIALS
         self.status = self.get_essential_state_decision()
+
+    def check_death(self, creature_list):
+        if self.vitals.hunger <= -20 or self.vitals.thirst <= 0:
+            print(f"{self} died at hunger:{self.vitals.hunger}")
+            self.interaction_manager.kill_creature(self, creature_list)
+
+    # -------------------------
+    # ACTIONS
+    # -------------------------
+
+    def drink_water(self):
+        if self.status == "thirsty":
+            print("drinking")
+            self.vitals.thirst = 100
+            self.times_drank += 1
+
+    def eat_veg(self):
+        if self.status == "hungry":
+            self.vitals.hunger = 100
+            self.times_ate += 1
+
+    # -------------------------
+    # INTERACTION RESOLUTION
+    # -------------------------
 
     def resolve_interaction(self, veg_list, creature_list):
         if self.interaction_manager.is_on_target(self):
@@ -125,10 +133,14 @@ class Creature:
     def handle_thirst(self):
         self.drink_water()
 
-    def check_death(self, creature_list):
-        if self.vitals.hunger <= -20 or self.vitals.thirst <= 0:
-            print(f"{self} died at hunger:{self.vitals.hunger}")
-            self.interaction_manager.kill_creature(self, creature_list)
+    # -------------------------
+    # REPRODUCTION
+    # -------------------------
+
+    def check_if_ready_for_a_mate(self):
+        if self.reproduction.time_since_last_mating == self.reproduction.reproductive_interval:
+            if self.times_ate > 0 and self.times_drank > 0:
+                return True
 
     # -------------------------
     # SIGNAL

@@ -9,9 +9,11 @@ from interactions import *
 import time
 from Predator import Predator
 from Prey import Prey
+from renderer import Renderer
 
 pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT)) 
+renderer = Renderer(WIDTH,HEIGHT)
+
 clock = pygame.time.Clock()
 
 
@@ -53,7 +55,7 @@ pygame.time.set_timer(VEG_SPAWN_EVENT, 5000)
 running = True
 while running:
     start = time.time()
-    screen.fill((0, 0, 0))
+    renderer.screen.fill((0, 0, 0))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -62,21 +64,23 @@ while running:
             vege.append(Veg(*random.choice(tuple(world.land_tiles))))  
             print("veg spawned") 
     
-    world.draw_map(screen)
+    renderer.draw_world(world.grid_width,world.grid_height,world.tile_size,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
     for c in creatures:
         c.update(world, vege, creatures)
     for c in creatures:   
         c.status_checker(world, vege, creatures)    
     for c in creatures:       
-        c.movement_decider(world, screen)
-    for c in creatures:       
-        c.draw(screen, TILE_SIZE)
+        c.movement_decider(world, renderer.screen)
+    for c in creatures:  
+        renderer.draw_creature(c,TILE_SIZE)     
+    
 
 
     for v in vege:
         v.draw(screen, TILE_SIZE)
 
+    renderer.flip()
     pygame.display.flip()
     clock.tick(5)
     print("Frame time:", time.time() - start)

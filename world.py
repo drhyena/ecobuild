@@ -240,29 +240,6 @@ class World:
     
   
         
-    # --------------------------------------------------
-    # DRAWING
-    # ----------------------------------------
-    # ----------
 
-    def draw_map(self, screen):
-        for x in range(self.grid_width):
-            for y in range(self.grid_height):
 
-                if (x, y) in self.shore_tiles:
-                    color = (194, 178, 128)  # sandy
-                elif self.map_grid[x][y] == "water":
-                    color = (30, 90, 160)
-                else:
-                    color = (40, 160, 60)
-
-                pygame.draw.rect(
-                    screen,
-                    color,
-                    (
-                        x * self.tile_size,
-                        y * self.tile_size,
-                        self.tile_size,
-                        self.tile_size
-                    )
-                )
+    
