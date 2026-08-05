@@ -71,7 +71,7 @@ while running:
     for c in creatures:   
         c.status_checker(world, vege, creatures)    
     for c in creatures:       
-        c.movement_decider(world, renderer.screen)
+        c.movement_decider(world)
     for c in creatures:  
         renderer.draw_creature(c,TILE_SIZE)     
     
