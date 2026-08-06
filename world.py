@@ -166,7 +166,6 @@ class World:
                     min_distance = distance
                     closest_shore = (u, v)
 
-        print("closest shore:", closest_shore)
         return closest_shore
 
     def find_closest_prey(self, c, creature_list):

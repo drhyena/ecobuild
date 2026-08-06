@@ -234,40 +234,9 @@ class Creature:
             if not self.targeting.path:
                 self.targeting.target = None
 
-    def follow_path(self, screen, tile_size):
+    def follow_path(self):
         if self.targeting.path:
-            points = [
-                (
-                    x * tile_size + tile_size // 2,
-                    y * tile_size + tile_size // 2,
-                )
-                for (x, y) in self.targeting.path
-            ]
-
-            if len(points) > 1:
-                pygame.draw.lines(screen, (255, 0, 0), False, points, 2)
 
             self.prev_x, self.prev_y = self.x, self.y
             self.x, self.y = self.targeting.path.pop(0)
 
-    # -------------------------
-    # DRAW
-    # -------------------------
-
-    def draw(self, screen, tile_size):
-        pygame.draw.circle(
-            screen,
-            (0, 255, 0),
-            (
-                self.x * tile_size + tile_size // 2,
-                self.y * tile_size + tile_size // 2,
-            ),
-            5,
-        )
-
-        font = pygame.font.Font(None, 16)
-        text = font.render(self.status, True, (255, 255, 255))
-        screen.blit(
-            text,
-            (self.x * tile_size, self.y * tile_size - 10),
-        )

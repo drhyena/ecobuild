@@ -12,7 +12,7 @@ from Prey import Prey
 from renderer import Renderer
 
 pygame.init()
-renderer = Renderer(WIDTH,HEIGHT)
+
 
 clock = pygame.time.Clock()
 
@@ -20,6 +20,9 @@ clock = pygame.time.Clock()
 world = World(GRID_WIDTH, GRID_HEIGHT, TILE_SIZE,NOISE_SCALE, NOISE_OCTAVES,
     NOISE_PERSISTENCE, NOISE_LACUNARITY,
     WORLD_SEED)
+
+renderer = Renderer(WIDTH,HEIGHT,world.tile_size)
+
 interactmanager = InteractionSystem(world)
 
 # Creating Creature and Vegetation objects
@@ -64,7 +67,7 @@ while running:
             vege.append(Veg(*random.choice(tuple(world.land_tiles))))  
             print("veg spawned") 
     
-    renderer.draw_world(world.grid_width,world.grid_height,world.tile_size,world.shore_tiles,world.map_grid)
+    renderer.draw_world(world.grid_width,world.grid_height,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
     for c in creatures:
         c.update(world, vege, creatures)
@@ -73,15 +76,14 @@ while running:
     for c in creatures:       
         c.movement_decider(world)
     for c in creatures:  
-        renderer.draw_creature(c,TILE_SIZE)     
+        renderer.draw_creature(c)     
     
 
 
     for v in vege:
-        v.draw(screen, TILE_SIZE)
+        renderer.draw_veg(v)
 
     renderer.flip()
-    pygame.display.flip()
     clock.tick(5)
     print("Frame time:", time.time() - start)
 

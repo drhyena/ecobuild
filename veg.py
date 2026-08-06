@@ -6,15 +6,5 @@ class Veg:
         self.alive = True
         self.claimed_by = None
 
-    def draw(self, screen, TILE_SIZE):
-        if self.alive:
-            pygame.draw.circle(
-                screen,
-                (255, 0, 0),
-                (
-                    self.v_x * TILE_SIZE + TILE_SIZE // 2,
-                    self.v_y * TILE_SIZE + TILE_SIZE // 2
-                ),
-                5
-            )
+    
     

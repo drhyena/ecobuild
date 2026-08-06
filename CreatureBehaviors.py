@@ -10,7 +10,7 @@ class Movement:
                     return
     
                 if c.targeting.path:
-                    c.follow_path(screen, world.tile_size)
+                    c.follow_path(world.tile_size)
     
     def notify_travel(c, target):
             """Called by interaction manager to assign a travel target."""
@@ -36,7 +36,7 @@ class Movement:
                 if not c.targeting.path:
                     c.targeting.target = None
     
-    def follow_path(c, screen, tile_size):
+    def follow_path(c, tile_size):
             if c.targeting.path:
                 points = [
                     (
@@ -45,9 +45,6 @@ class Movement:
                     )
                     for (x, y) in c.targeting.path
                 ]
-
-                if len(points) > 1:
-                    pygame.draw.lines(screen, (255, 0, 0), False, points, 2)
     
                 c.prev_x, c.prev_y = c.x, c.y
                 c.x, c.y = c.targeting.path.pop(0)
@@ -56,6 +53,7 @@ class PredatorMovement(Movement):
     pass
 
 class PreyMovement(Movement):
+    pass
 
 
 

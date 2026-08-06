@@ -97,7 +97,7 @@ class Prey(Creature):
         self.prev_x, self.prev_y = self.x, self.y
         self.x, self.y = self.targeting.target
     
-    def movement_decider(self, world, screen):
+    def movement_decider(self, world):
 
    
 
@@ -115,4 +115,4 @@ class Prey(Creature):
 
             if self.targeting.path:
                 
-                self.follow_path(screen, world.tile_size)
+                self.follow_path()

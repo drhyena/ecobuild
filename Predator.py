@@ -199,7 +199,7 @@ class Predator(Creature):
         self.prev_x, self.prev_y = self.x, self.y
         self.x, self.y = self.targeting.target
         
-    def movement_decider(self, world, screen):
+    def movement_decider(self, world):
 
         if self.targeting.target is None:
            
@@ -216,22 +216,6 @@ class Predator(Creature):
 
             if self.targeting.path:
                 
-                self.follow_path(screen, world.tile_size)
+                self.follow_path()
        
-    def draw(self, screen, tile_size):
-        pygame.draw.circle(
-            screen,
-            (255, 255, 255),
-            (
-                self.x * tile_size + tile_size // 2,
-                self.y * tile_size + tile_size // 2,
-            ),
-            5,
-        )
-
-        font = pygame.font.Font(None, 16)
-        text = font.render(self.status, True, (255, 255, 255))
-        screen.blit(
-            text,
-            (self.x * tile_size, self.y * tile_size - 10),
-        )
+    
