@@ -57,7 +57,6 @@ pygame.time.set_timer(VEG_SPAWN_EVENT, 5000)
 # MAIN GAME LOOP    
 running = True
 while running:
-    start = time.time()
     renderer.screen.fill((0, 0, 0))
 
     for event in pygame.event.get():
@@ -84,7 +83,7 @@ while running:
         renderer.draw_veg(v)
 
     renderer.flip()
-    clock.tick(5)
-    print("Frame time:", time.time() - start)
+    dt_ms = clock.tick(5)
+    world.dt = dt_ms
 
 pygame.quit()

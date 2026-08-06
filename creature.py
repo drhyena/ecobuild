@@ -1,13 +1,13 @@
 import random
 import pygame
-import math
 from astar import *
 from CreatureData import Vitals, Genome, Targeting, Reproduction
 
 
 class Creature:
-    def __init__(self, x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
+    def __init__(self, px,py,x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
         self.x, self.y = x, y
+        self.px,self.py = x//2, y//2
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -33,6 +33,7 @@ class Creature:
         self.alive = True
         self.species = "creature"
         self.prev_x, self.prev_y = self.x, self.y
+        self.prev_px,self.prev_py=self.px,self.py
 
         # log attributes. Additional data
         self.times_drank = 0

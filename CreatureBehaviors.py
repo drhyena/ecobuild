@@ -23,7 +23,8 @@ class Movement:
             if world.is_walkable(dx, dy):
                 c.prev_x, c.prev_y = c.x, c.y
                 c.x, c.y = dx, dy
-    
+                
+                
     def set_path(c, world):
             if c.targeting.target:
                 c.targeting.path = astar(
@@ -36,17 +37,18 @@ class Movement:
                 if not c.targeting.path:
                     c.targeting.target = None
     
-    def follow_path(c, tile_size):
-            if c.targeting.path:
-                points = [
-                    (
-                        x * tile_size + tile_size // 2,
-                        y * tile_size + tile_size // 2,
-                    )
-                    for (x, y) in c.targeting.path
-                ]
     
+    #finds paths between two tiles. basis for pixel based travel
+    def pixel_path_finder(c):
+        pass
+    
+    
+    def follow_path(c,dt):
+        
                 c.prev_x, c.prev_y = c.x, c.y
+                pixels_travelled = c.speed * dt
+                
+                
                 c.x, c.y = c.targeting.path.pop(0)
 
 class PredatorMovement(Movement):

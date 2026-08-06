@@ -17,7 +17,7 @@ class Renderer:
                             c.x * self.tile_size + self.tile_size // 2,
                             c.y * self.tile_size + self.tile_size // 2,
                         ),
-                        5,
+                        1,
                     )
         else:
             pygame.draw.circle(
@@ -27,7 +27,7 @@ class Renderer:
                                               c.x * self.tile_size + self.tile_size // 2,
                                               c.y * self.tile_size + self.tile_size // 2,
                                           ),
-                                          5,
+                                          1,
                                       )  
         font = pygame.font.Font(None, 16)
         text = font.render(c.status, True, (255, 255, 255))

@@ -37,6 +37,8 @@ class World:
 
         # Precompute tile types
         self.set_maptypes()
+        
+        self.dt = 0
 
     # --------------------------------------------------
     # WORLD GENERATION
