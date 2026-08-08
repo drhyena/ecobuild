@@ -39,8 +39,19 @@ class Movement:
     
     
     #finds paths between two tiles. basis for pixel based travel
-    def pixel_path_finder(c):
-        pass
+    def pixel_traversal(c):
+
+        pixel_target = (c.targeting.target.x * c.world.tile_size // 2 ,
+                        c.targeting.target.y * c.world.tile_size// 2)
+        
+        v_px = c.px - pixel_target[0]/abs(c.px - pixel_target[0])
+        v_py = c.py - pixel_target[1]/abs(c.py - pixel_target[1])
+        
+        if (c.px,c.py) != pixel_target:
+            c.ne
+        
+        
+        
     
     
     def follow_path(c,dt):
