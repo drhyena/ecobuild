@@ -1,5 +1,4 @@
 import random
-import pygame
 from opensimplex import OpenSimplex
 
 
@@ -10,9 +9,6 @@ class World:
         grid_height,
         tile_size,
         noise_scale,
-        noise_octaves,
-        noise_persistence,
-        noise_lacunarity,
         world_seed=None
     ):
         self.grid_width = grid_width
