@@ -39,27 +39,31 @@ class Movement:
     
     
     #finds paths between two tiles. basis for pixel based travel
-    def pixel_traversal(c):
-
-        pixel_target = (c.targeting.target.x * c.world.tile_size // 2 ,
-                        c.targeting.target.y * c.world.tile_size// 2)
-        
-        v_px = c.px - pixel_target[0]/abs(c.px - pixel_target[0])
-        v_py = c.py - pixel_target[1]/abs(c.py - pixel_target[1])
+    def pixel_traversal(self, c,dt,pixel_target):
+        try:
+            v_px = ((pixel_target[0]) - c.px  )/abs(c.px - pixel_target[0])
+        except ZeroDivisionError:
+            v_px = 1
+        try: 
+            v_py = ((pixel_target[1] - c.py  ))/abs(c.py - pixel_target[1])
+        except ZeroDivisionError:
+            v_py = 1
+            
         
         if (c.px,c.py) != pixel_target:
-            c.ne
-        
-        
+            c.prev_px = c.px
+            c.prev_py = c.py
+            c.px = c.px + c.speed * v_px * dt
+            c.py = c.py + c.speed * v_py * dt
         
     
-    
-    def follow_path(c,dt):
-        
-                c.prev_x, c.prev_y = c.x, c.y
-                pixels_travelled = c.speed * dt
+    def follow_path(self, c,dt):
+                c.prev_x, c.prev_y = c.x, c.y    
+                pixel_target = (c.targeting.target_creature.x * c.world.tile_size + c.world.tile_size// 2 ,
+                                        c.targeting.target_creature.y * c.world.tile_size+ c.world.tile_size // 2)  
                 
-                
+                while (c.px,c.py) != pixel_target:
+                    self.pixel_traversel(c,dt,pixel_target)                         
                 c.x, c.y = c.targeting.path.pop(0)
 
 class PredatorMovement(Movement):
