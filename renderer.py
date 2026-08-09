@@ -67,7 +67,7 @@ class Renderer:
                     veg.v_x * self.tile_size + self.tile_size // 2,
                     veg.v_y * self.tile_size + self.tile_size // 2
                 ),
-                5
+                1
             )
     
     
