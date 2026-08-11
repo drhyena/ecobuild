@@ -5,9 +5,12 @@ from CreatureData import Vitals, Genome, Targeting, Reproduction
 
 
 class Creature:
-    def __init__(self,x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
+    def __init__(self,x, y, world, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
         self.x, self.y = x, y
-        self.px,self.py = x//2, y//2
+        self.world = world
+        self.px = x*self.world.tile_size + self.world.tile_size//2 
+        self.py = y*self.world.tile_size + self.world.tile_size//2
+        self.py
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -29,10 +32,10 @@ class Creature:
 
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
-        self.world = None
+        self.world = world
         self.alive = True
         self.species = "creature"
-        self.prev_x, self.prev_y = self.x, self.y
+        self.prev_x, self.prev_y = self.x,self.y
         self.prev_px,self.prev_py=self.px,self.py
 
         # log attributes. Additional data
@@ -49,9 +52,8 @@ class Creature:
     # MAIN UPDATE LOOP
     # -------------------------
 
-    def update(self, world, veg_list, creature_list):
-        self.world = world
-        self.update_perceived_tiles(world)
+    def update(self, veg_list, creature_list):
+        self.update_perceived_tiles(self.world)
         self.update_needs()
         self.update_state()
         self.resolve_interaction(veg_list, creature_list)
@@ -234,10 +236,31 @@ class Creature:
             )
             if not self.targeting.path:
                 self.targeting.target = None
-
+                
+    #finds paths between two tiles. basis for pixel based travel
+    def pixel_traversal(self, dt,pixel_target):
+        try:
+            v_px = ((pixel_target[0]) - self.px  )/abs(self.px - pixel_target[0])
+        except ZeroDivisionError:
+            v_px = 1
+        try: 
+            v_py = ((pixel_target[1] - self.py  ))/abs(self.py - pixel_target[1])
+        except ZeroDivisionError:
+            v_py = 1
+            
+        
+        if (self.px,self.py) != pixel_target:
+            self.prev_px = self.px
+            self.prev_py = self.py
+            self.px = self.px + self.speed * v_px * dt
+            self.py = self.py + self.speed * v_py * dt
+            
     def follow_path(self):
-        if self.targeting.path:
-
-            self.prev_x, self.prev_y = self.x, self.y
-            self.x, self.y = self.targeting.path.pop(0)
-
+        #c.prev_x, c.prev_y = c.x, c.y    
+                        self.x, self.y = self.targeting.path.pop(0)
+                        pixel_target = (self.targeting.target(0) * self.world.tile_size + self.world.tile_size// 2 ,
+                                                self.targeting.target(1) * self.world.tile_size+ self.world.tile_size // 2)  
+                        
+                        while (self.px,self.py) != pixel_target:
+                            self.pixel_traversel(self,self.world.dt,pixel_target)                         
+        

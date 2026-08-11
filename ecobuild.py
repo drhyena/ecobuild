@@ -28,12 +28,12 @@ world.set_maptypes()
 def create_creatures_random(num_predators, num_prey):
 
     predators = [
-        Predator(*random.choice(tuple(world.land_tiles)), interactmanager)
+        Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager)
         for _ in range(num_predators)
     ]
 
     prey = [
-        Prey(*random.choice(tuple(world.land_tiles)), interactmanager)
+        Prey(*random.choice(tuple(world.land_tiles)),world,  interactmanager)
         for _ in range(num_prey)
     ]
 
@@ -66,7 +66,7 @@ while running:
     renderer.draw_world(world.grid_width,world.grid_height,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
     for c in creatures:
-        c.update(world, vege, creatures)
+        c.update( vege, creatures)
     for c in creatures:   
         c.status_checker(world, vege, creatures)    
     for c in creatures:       

@@ -58,13 +58,13 @@ class Movement:
         
     
     def follow_path(self, c,dt):
-                c.prev_x, c.prev_y = c.x, c.y    
-                pixel_target = (c.targeting.target_creature.x * c.world.tile_size + c.world.tile_size// 2 ,
-                                        c.targeting.target_creature.y * c.world.tile_size+ c.world.tile_size // 2)  
+                #c.prev_x, c.prev_y = c.x, c.y    
+                c.x, c.y = c.targeting.path.pop(0)
+                pixel_target = (c.targeting.target[0] * c.world.tile_size + c.world.tile_size// 2 ,
+                                        c.targeting.target[1] * c.world.tile_size+ c.world.tile_size // 2)  
                 
                 while (c.px,c.py) != pixel_target:
                     self.pixel_traversel(c,dt,pixel_target)                         
-                c.x, c.y = c.targeting.path.pop(0)
 
 class PredatorMovement(Movement):
     pass

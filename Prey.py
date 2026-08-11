@@ -3,8 +3,8 @@ import random
 
 class Prey(Creature):
 
-    def __init__(self, x, y, interaction_manager):
-        super().__init__(x, y, interaction_manager)
+    def __init__(self, x, y,world,  interaction_manager):
+        super().__init__(x, y,world, interaction_manager)
         self.species = "prey"
         self.genome.iq = 0.4
         self.genome.hunger_threshold = 20
