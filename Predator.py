@@ -2,8 +2,8 @@ from creature import *
 
 class Predator(Creature):
 
-    def __init__(self, x, y, interaction_manager):
-        super().__init__(x, y, interaction_manager)
+    def __init__(self, x, y, world,interaction_manager):
+        super().__init__(x, y, world, interaction_manager)
         self.species = "predator"
         self.genome.iq = 0.7
         self.genome.hunger_threshold = 50
