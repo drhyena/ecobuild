@@ -4,9 +4,7 @@ from astar import *
 from config import WIDTH, HEIGHT, TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, MAX_VEG_COUNT, NOISE_SCALE, NOISE_OCTAVES,NOISE_PERSISTENCE, NOISE_LACUNARITY,WORLD_SEED
 from world import World
 from veg import Veg
-from creature import Creature
 from interactions import *
-import time
 from Predator import Predator
 from Prey import Prey
 from renderer import Renderer
@@ -17,8 +15,7 @@ pygame.init()
 clock = pygame.time.Clock()
 
 
-world = World(GRID_WIDTH, GRID_HEIGHT, TILE_SIZE,NOISE_SCALE, NOISE_OCTAVES,
-    NOISE_PERSISTENCE, NOISE_LACUNARITY,
+world = World(GRID_WIDTH, GRID_HEIGHT, TILE_SIZE,NOISE_SCALE,
     WORLD_SEED)
 
 renderer = Renderer(WIDTH,HEIGHT,world.tile_size)

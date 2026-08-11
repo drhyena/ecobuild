@@ -5,7 +5,7 @@ from CreatureData import Vitals, Genome, Targeting, Reproduction
 
 
 class Creature:
-    def __init__(self, px,py,x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
+    def __init__(self,x, y, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
         self.x, self.y = x, y
         self.px,self.py = x//2, y//2
         self.status = ""
