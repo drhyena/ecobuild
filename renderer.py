@@ -17,17 +17,17 @@ class Renderer:
                             c.px,
                             c.py,
                         ),
-                        1,
+                        5,
                     )
         else:
             pygame.draw.circle(
                                           self.screen,
                                           (0, 255, 0),
                                           (
-                                              c.x,
-                                              c.y,
+                                              c.px,
+                                              c.py,
                                           ),
-                                          1,
+                                          5,
                                       )  
         font = pygame.font.Font(None, 16)
         text = font.render(c.status, True, (255, 255, 255))
