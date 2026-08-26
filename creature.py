@@ -10,7 +10,7 @@ class Creature:
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2 
         self.py = y*self.world.tile_size + self.world.tile_size//2
-        self.py
+        self.speed = 1
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -239,28 +239,42 @@ class Creature:
                 
     #finds paths between two tiles. basis for pixel based travel
     def pixel_traversal(self, dt,pixel_target):
-        try:
-            v_px = ((pixel_target[0]) - self.px  )/abs(self.px - pixel_target[0])
-        except ZeroDivisionError:
-            v_px = 1
-        try: 
-            v_py = ((pixel_target[1] - self.py  ))/abs(self.py - pixel_target[1])
-        except ZeroDivisionError:
-            v_py = 1
-            
+        
+        vector_to_target = (((pixel_target[0]) - self.px  ) ,(pixel_target[1] - self.py))
+        v_mag = (vector_to_target[0]**2 
+                                + 
+                 vector_to_target[1]**2)**(1/2)
+        
+        
+        v_dir_x = vector_to_target[0]/v_mag
+        print("v_dirx",v_dir_x)
+        
+        v_dir_y= vector_to_target[1]/v_mag
+        print("v-diry",v_dir_y)
+
+              
+        print("pixel target:",pixel_target)
         
         if (self.px,self.py) != pixel_target:
             self.prev_px = self.px
             self.prev_py = self.py
-            self.px = self.px + self.speed * v_px * dt
-            self.py = self.py + self.speed * v_py * dt
-            
+            self.px = round(self.px + self.speed * v_dir_x) 
+            self.py = self.py + self.speed * v_dir_y 
+            print(self.px,self.py)
+            print("p chanegd")
+            round()
     def follow_path(self):
         #c.prev_x, c.prev_y = c.x, c.y    
-                        self.x, self.y = self.targeting.path.pop(0)
-                        pixel_target = (self.targeting.target(0) * self.world.tile_size + self.world.tile_size// 2 ,
-                                                self.targeting.target(1) * self.world.tile_size+ self.world.tile_size // 2)  
+        print("hang check")
+        self.x, self.y = self.targeting.path.pop(0)
+        print("hang check2")
+        pixel_target = (self.targeting.target[0] * self.world.tile_size + self.world.tile_size// 2 ,
+                    self.targeting.target[1] * self.world.tile_size+ self.world.tile_size // 2)
+        print("hang check 3")  
                         
-                        while (self.px,self.py) != pixel_target:
-                            self.pixel_traversel(self,self.world.dt,pixel_target)                         
-        
+        while (self.px,self.py) != pixel_target:
+            print("hang check4")
+            self.pixel_traversal(self.world.dt,pixel_target)   
+            
+            
+            
