@@ -58,6 +58,7 @@ class Creature:
         self.update_state()
         self.resolve_interaction(veg_list, creature_list)
         self.check_death(creature_list)
+        print(f"current px:{self.px},py:{self.py}")
         if not self.alive:
             print(self, "died while", self.status)
 
