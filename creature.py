@@ -258,14 +258,15 @@ class Creature:
         if (self.px,self.py) != pixel_target:
             self.prev_px = self.px
             self.prev_py = self.py
-            self.px = round(self.px + self.speed * v_dir_x) 
-            self.py = self.py + self.speed * v_dir_y 
+            self.px = round(self.px + self.speed * v_dir_x,None) 
+            self.py = round(self.py + self.speed * v_dir_y,None) 
             print(self.px,self.py)
             print("p chanegd")
-            round()
+            
     def follow_path(self):
         #c.prev_x, c.prev_y = c.x, c.y    
         print("hang check")
+        
         self.x, self.y = self.targeting.path.pop(0)
         print("hang check2")
         pixel_target = (self.targeting.target[0] * self.world.tile_size + self.world.tile_size// 2 ,
@@ -276,5 +277,4 @@ class Creature:
             print("hang check4")
             self.pixel_traversal(self.world.dt,pixel_target)   
             
-            
-            
+  
