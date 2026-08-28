@@ -223,9 +223,26 @@ class Creature:
     def wander_randomly(self, world):
         dx, dy = random.choice(world.get_neighbors(self.x, self.y))
         if world.is_walkable(dx, dy):
-            self.prev_x, self.prev_y = self.x, self.y
+            self.prev_x, self.prev_y = self.x, self.y 
             self.x, self.y = dx, dy
 
+    
+    def wander_randomly(self, world):
+         dx, dy = random.choice(world.get_neighbors(self.x, self.y))
+         
+         if world.is_walkable(dx,dy):
+            pixel_target = (
+                            dx**self.world.tile_size + self.world.tile_size//2,
+                            dy**self.world.tile_size + self.world.tile_size//2
+                            )
+            
+            self.pixel_traversal(pixel_target)
+            
+
+            
+        
+        
+    #finds a path through TILES.
     def set_path(self, world):
         if self.targeting.target:
             self.targeting.path = astar(
@@ -238,8 +255,8 @@ class Creature:
             if not self.targeting.path:
                 self.targeting.target = None
                 
-    #finds paths between two tiles. basis for pixel based travel
-    def pixel_traversal(self, dt,pixel_target):
+    #Uses vectors to travel between two tiles. basis for pixel based travel
+    def pixel_traversal(self,pixel_target):
         
         vector_to_target = (((pixel_target[0]) - self.px  ) ,(pixel_target[1] - self.py))
         v_mag = (vector_to_target[0]**2 
@@ -259,8 +276,8 @@ class Creature:
         if (self.px,self.py) != pixel_target:
             self.prev_px = self.px
             self.prev_py = self.py
-            self.px = round(self.px + self.speed * v_dir_x,None) 
-            self.py = round(self.py + self.speed * v_dir_y,None) 
+            self.px = round(self.px + self.speed * v_dir_x*self.world.dt,None) 
+            self.py = round(self.py + self.speed * v_dir_y*self.world.dt,None) 
             print(self.px,self.py)
             print("p chanegd")
             
@@ -274,8 +291,7 @@ class Creature:
                     self.targeting.target[1] * self.world.tile_size+ self.world.tile_size // 2)
         print("hang check 3")  
                         
-        while (self.px,self.py) != pixel_target:
-            print("hang check4")
+        if (self.px,self.py) != pixel_target:
             self.pixel_traversal(self.world.dt,pixel_target)   
             
   
