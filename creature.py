@@ -220,20 +220,19 @@ class Creature:
             self.targeting.target = target
             self.targeting.path = []
 
-    def wander_randomly(self, world):
-        dx, dy = random.choice(world.get_neighbors(self.x, self.y))
-        if world.is_walkable(dx, dy):
-            self.prev_x, self.prev_y = self.x, self.y 
-            self.x, self.y = dx, dy
+    #def wander_randomly(self, world):
+       # dx, dy = random.choice(world.get_neighbors(self.x, self.y))
+      #  if world.is_walkable(dx, dy):
+        #    self.prev_x, self.prev_y = self.x, self.y 
+      #      self.x, self.y = dx, dy
 
     
     def wander_randomly(self, world):
          dx, dy = random.choice(world.get_neighbors(self.x, self.y))
-         
          if world.is_walkable(dx,dy):
             pixel_target = (
-                            dx**self.world.tile_size + self.world.tile_size//2,
-                            dy**self.world.tile_size + self.world.tile_size//2
+                            dx*self.world.tile_size + self.world.tile_size//2,
+                            dy*self.world.tile_size + self.world.tile_size//2
                             )
             
             self.pixel_traversal(pixel_target)
@@ -295,3 +294,5 @@ class Creature:
             self.pixel_traversal(self.world.dt,pixel_target)   
             
   
+  
+    #def check_within 

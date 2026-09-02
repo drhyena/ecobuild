@@ -14,18 +14,18 @@ class Renderer:
                         self.screen,
                         (255, 255, 255),
                         (
-                            c.px,
-                            c.py,
+                            c.x * self.tile_size + self.tile_size//2,
+                            c.y*self.tile_size + self.tile_size//2,
                         ),
-                        5,
+                    5,
                     )
         else:
             pygame.draw.circle(
                                           self.screen,
                                           (0, 255, 0),
                                           (
-                                              c.px,
-                                              c.py,
+                                               c.x * self.tile_size + self.tile_size//2,
+                                               c.y * self.tile_size + self.tile_size//2,
                                           ),
                                           5,
                                       )  

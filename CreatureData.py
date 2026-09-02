@@ -18,7 +18,7 @@ class Targeting:
     target_veg: object = None
     target_creature: object = None
     targeted_by: object = None
-    pixel_target: tuple = None
+    
 
 
 @dataclass
