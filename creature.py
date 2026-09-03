@@ -19,6 +19,7 @@ class Creature:
 
         self.targeting.target = None
         self.targeting.target_veg = None
+        self.targeting.target_pixel = None
         self.targeting.target_creature = None
         self.targeting.targeted_by = None
         self.targeting.path = []
@@ -226,16 +227,19 @@ class Creature:
         #    self.prev_x, self.prev_y = self.x, self.y 
       #      self.x, self.y = dx, dy
 
-    
+
     def wander_randomly(self, world):
-         dx, dy = random.choice(world.get_neighbors(self.x, self.y))
-         if world.is_walkable(dx,dy):
-            pixel_target = (
+        dx, dy = random.choice(world.get_neighbors(self.x, self.y))
+        if world.is_walkable(dx,dy):
+            self.targetting.target_pixel = (
                             dx*self.world.tile_size + self.world.tile_size//2,
                             dy*self.world.tile_size + self.world.tile_size//2
                             )
-            
-            self.pixel_traversal(pixel_target)
+        while(self.px,self.py) != self.targeting.target_pixel:
+                self.pixel_traversal()
+
+        self.prev_x = self.x
+        self.prev_y = self.y
             
 
             
@@ -255,9 +259,10 @@ class Creature:
                 self.targeting.target = None
                 
     #Uses vectors to travel between two tiles. basis for pixel based travel
-    def pixel_traversal(self,pixel_target):
+    def pixel_traversal(self):
         
-        vector_to_target = (((pixel_target[0]) - self.px  ) ,(pixel_target[1] - self.py))
+        vector_to_target = (((self.targetting.target_pixel[0]) - self.px  ) ,(self.targetting.target_pixel[1] - self.py))
+        
         v_mag = (vector_to_target[0]**2 
                                 + 
                  vector_to_target[1]**2)**(1/2)
@@ -270,9 +275,9 @@ class Creature:
         print("v-diry",v_dir_y)
 
               
-        print("pixel target:",pixel_target)
+        print("pixel target:",self.targetting.target_pixel)
         
-        if (self.px,self.py) != pixel_target:
+        if (self.px,self.py) != self.targetting.target_pixel:
             self.prev_px = self.px
             self.prev_py = self.py
             self.px = round(self.px + self.speed * v_dir_x*self.world.dt,None) 
@@ -281,18 +286,23 @@ class Creature:
             print("p chanegd")
             
     def follow_path(self):
-        #c.prev_x, c.prev_y = c.x, c.y    
-        print("hang check")
-        
-        self.x, self.y = self.targeting.path.pop(0)
-        print("hang check2")
-        pixel_target = (self.targeting.target[0] * self.world.tile_size + self.world.tile_size// 2 ,
-                    self.targeting.target[1] * self.world.tile_size+ self.world.tile_size // 2)
-        print("hang check 3")  
+
+        if self.check_within_tile(self.targeting.target[0],self.targeting.target[1]):
+            self.prev_x, self.prev_y = self.x, self.y  
+            self.x,self.y = self.targeting.path.pop(0)
+
+
+        self.targeting.target_pixel = (self.targeting.path[0][0] * self.world.tile_size + self.world.tile_size// 2 ,
+                    self.targeting.path[1][0] * self.world.tile_size+ self.world.tile_size // 2)
                         
-        if (self.px,self.py) != pixel_target:
-            self.pixel_traversal(self.world.dt,pixel_target)   
+        if (self.px,self.py) != self.targetting.target_pixel:
+            self.pixel_traversal()   
             
   
   
-    #def check_within 
+    def check_within_tile(self,x,y):
+        current_x = self.px//self.world.tile_size
+        current_y=  self.py//self.world.tile_size
+
+        if (self.prev_x,self.prev_y) != (current_x,current_y):
+            return True
