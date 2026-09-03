@@ -4,3 +4,14 @@ the main architecture will still rely on the old tile-based approach.
 pixel based movement will fill the gaps between tile based movement.
 this will make the creatures move smooth.
 further complexity will be added on "how" the creature moves from tile to tile. 
+
+
+
+
+
+
+fix architecture.
+
+use astar* for overall path layout.
+follow path's primary objective is to track pixel movement and see if tiles have changed.
+once tiles have changed, increment self.x and self.y, otherwise, keep incrementing self.px and self.py as per need.
