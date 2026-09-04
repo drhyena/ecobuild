@@ -15,3 +15,13 @@ fix architecture.
 use astar* for overall path layout.
 follow path's primary objective is to track pixel movement and see if tiles have changed.
 once tiles have changed, increment self.x and self.y, otherwise, keep incrementing self.px and self.py as per need.
+
+
+
+
+lerp.
+
+distance b/w target and current. 
+step value(displacement) = self.speed * world.dt
+
+t= step/distance

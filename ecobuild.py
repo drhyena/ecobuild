@@ -81,6 +81,6 @@ while running:
 
     renderer.flip()
     dt_ms = clock.tick(5)
-    world.dt = dt_ms
+    world.dt = dt_ms/1000
 
 pygame.quit()
