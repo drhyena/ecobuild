@@ -66,11 +66,11 @@ while running:
     renderer.draw_world(world.grid_width,world.grid_height,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
     for c in creatures:
-        c.update( vege, creatures)
+        c.update(vege, creatures)
     for c in creatures:   
-        c.status_checker(world, vege, creatures)    
+        c.status_checker(vege, creatures)    
     for c in creatures:       
-        c.movement_decider(world)
+        c.movement_decider()
     for c in creatures:  
         renderer.draw_creature(c)     
     
