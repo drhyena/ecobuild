@@ -37,7 +37,7 @@ class Creature:
         self.alive = True
         self.species = "creature"
         self.prev_x, self.prev_y = self.x,self.y
-        self.prev_px,self.prev_py=self.px,self.py
+        self.prev_px,self.prev_py = self.px,self.py
 
         # log attributes. Additional data
         self.times_drank = 0
@@ -158,40 +158,40 @@ class Creature:
     # PERCEPTION
     # -------------------------
 
-    def update_perceived_tiles(self, world):
+    def update_perceived_tiles(self):
         self.targeting.perceived_tiles.clear()
         self.targeting.perceived_tiles = [
             (self.x + dx, self.y + dy)
             for dx, dy in self.genome.perceptive_radius
-            if 0 <= self.x + dx < world.grid_width
-            and 0 <= self.y + dy < world.grid_height
+            if 0 <= self.x + dx < self.world.grid_width
+            and 0 <= self.y + dy < self.world.grid_height
         ]
 
     # -------------------------
     # TARGET DECISION
     # -------------------------
 
-    def status_checker(self, world, veg, creature_list):
+    def status_checker(self, veg, creature_list):
         if self.status == "hungry":
-            self.handle_hungry_state(world, veg, creature_list)
+            self.handle_hungry_state(veg, creature_list)
         elif self.status == "thirsty":
-            self.handle_thirsty_state(world)
+            self.handle_thirsty_state()
         else:
             self.targeting.target = None
 
-    def handle_thirsty_state(self, world):
+    def handle_thirsty_state(self):
         if self.targeting.target:
             return
-        self.update_perceived_tiles(world)
-        self.targeting.target = world.find_closest_shore(
+        self.update_perceived_tiles()
+        self.targeting.target = self.world.find_closest_shore(
             self.x, self.y, self.targeting.perceived_tiles
         )
 
-    def handle_hungry_state(self, world, veg, creature_list):
+    def handle_hungry_state(self, veg, creature_list):
         if self.targeting.target:
             return
-        self.update_perceived_tiles(world)
-        self.targeting.target_veg = world.find_closest_veg(
+        self.update_perceived_tiles()
+        self.targeting.target_veg = self.world.find_closest_veg(
             veg, self.x, self.y, self.targeting.perceived_tiles
         )
         if self.targeting.target_veg is None:
@@ -204,16 +204,16 @@ class Creature:
     # MOVEMENT
     # -------------------------
 
-    def movement_decider(self, world, screen):
+    def movement_decider(self):
         if self.targeting.target is None:
-            self.wander_randomly(world)
+            self.wander_randomly()
         else:
             if not self.targeting.path:
-                self.set_path(world)
+                self.set_path()
                 return
 
             if self.targeting.path:
-                self.follow_path(screen, world.tile_size)
+                self.follow_path()
 
     def notify_travel(self, target):
         """Called by interaction manager to assign a travel target."""
@@ -228,18 +228,23 @@ class Creature:
       #      self.x, self.y = dx, dy
 
 
-    def wander_randomly(self, world):
-        dx, dy = random.choice(world.get_neighbors(self.x, self.y))
-        if world.is_walkable(dx,dy):
-            self.targetting.pixel_target = (
-                            dx*self.world.tile_size + self.world.tile_size//2,
-                            dy*self.world.tile_size + self.world.tile_size//2
-                            )
-        while(self.px,self.py) != self.targeting.pixel_target:
-                self.pixel_traversal()
+    def wander_randomly(self):
+        dx, dy = random.choice(self.world.get_neighbors(self.x, self.y))
+        if self.world.is_walkable(dx,dy):
+            if not self.targeting.pixel_target:
+                self.targeting.pixel_target = (
+                                dx*self.world.tile_size + self.world.tile_size//2,
+                                dy*self.world.tile_size + self.world.tile_size//2
+                                ) 
+            
+        t= self.lerp_prep(self.targeting.pixel_target)
+        self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
+        self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
 
-        self.prev_x = self.x
-        self.prev_y = self.y
+        if self.at_pixel_target():
+            self.prev_x = self.x
+            self.prev_y = self.y
+            self.targeting.pixel_target = None
             
 
             
@@ -284,28 +289,40 @@ class Creature:
             self.py = round(self.py + self.speed * v_dir_y*self.world.dt,None) 
             print(self.px,self.py)
             print("p chanegd")
+
+
+    def lerp(self,start,end, t):
+        return  start + (end-start)*t
+        
+    def lerp_prep(self,target):
+        step = self.speed*self.world.dt
+        distance = ((
+                            ((target[0] - self.px)**2) 
+                                       +
+                            (target[1] - self.py)**2)
+                            ) ** (1/2)
+        
+        if step>=distance:
+                return 1
+        else:    
+                return step/distance
+        
             
     def follow_path(self):
 
-        if self.check_if_new_tile():
-            self.prev_x, self.prev_y = self.x, self.y  
-            self.x,self.y = self.targeting.path.pop(0)
-           
-           
-        if  self.at_pixel_target():
+        if not self.targeting.pixel_target:           
+            self.targeting.pixel_target = ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2), 
+                    (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2))
+
+        
+        t = self.lerp_prep(self.targeting.pixel_target)
+        self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
+        self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
+
+        if self.at_pixel_target():
+            self.prev_x, self.prev_y = self.x, self.y
+            self.x, self.y = self.targeting.path.pop(0)
             self.targeting.pixel_target = None
-            
-        #If there is no pixel_target, fixes the centre of the next tile in path as the pixel_target
-        if not self.targeting.pixel_target and self.targeting.path:
-            self.targeting.pixel_target = (self.targeting.path[0][0] * self.world.tile_size + self.world.tile_size// 2 ,
-                    self.targeting.path[0][1] * self.world.tile_size+ self.world.tile_size // 2)
-                        
-        
-        t = 1/self.speed
-        self.x = self.lerp(self.x,self.targeting.path[0][0],t)
-        
-        if (self.px,self.py) != self.targeting.pixel_target:
-            self.pixel_traversal()   
           
     
     def at_pixel_target(self):
@@ -314,19 +331,8 @@ class Creature:
   
   
     def check_if_new_tile(self):
-        current_x = self.px//self.world.tile_size
-        current_y=  self.py//self.world.tile_size
-
-        if (self.prev_x,self.prev_y) != (current_x,current_y):
+        if (self.px,self.py) == ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2),
+                                         (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2)):
             return True
 
 
-    def lerp(self,start,end, t):
-        return  start + (end-start)*t
-        
-        
-        
-        
-    dist
-    def follow_path(self):
-        
