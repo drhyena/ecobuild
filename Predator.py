@@ -92,15 +92,15 @@ class Predator(Creature):
     # STATUS CHECKER OVERRIDE
     # -------------------------
 
-    def status_checker(self, world, veg, creature_list):
+    def status_checker(self, veg, creature_list):
 
       
         if self.status == "hungry":
-            self.handle_hungry_state(world, creature_list)
+            self.handle_hungry_state(creature_list)
         elif self.status == "thirsty":
-            self.handle_thirsty_state(world)
+            self.handle_thirsty_state()
         elif self.status == "hunting":
-            self.handle_hunting_state(world)
+            self.handle_hunting_state()
 
         else:
             self.targeting.target = None

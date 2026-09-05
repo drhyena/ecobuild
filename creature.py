@@ -10,7 +10,7 @@ class Creature:
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2 
         self.py = y*self.world.tile_size + self.world.tile_size//2
-        self.speed = 1
+        self.speed = 10
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -54,7 +54,7 @@ class Creature:
     # -------------------------
 
     def update(self, veg_list, creature_list):
-        self.update_perceived_tiles(self.world)
+        self.update_perceived_tiles()
         self.update_needs()
         self.update_state()
         self.resolve_interaction(veg_list, creature_list)
@@ -68,8 +68,8 @@ class Creature:
     # -------------------------
 
     def update_needs(self):
-        self.vitals.hunger -= 1
-        self.vitals.thirst -= 2
+        self.vitals.hunger -= 1*self.world.dt*1.5
+        self.vitals.thirst -= 2*self.world.dt*1.5
 
     def check_essentials(self):
         return {
@@ -87,6 +87,7 @@ class Creature:
         # Non-essentials will include reproduction and the like. Non-essentials will require essentials to be fulfilled.
         # ESSENTIALS
         self.status = self.get_essential_state_decision()
+        print(self.status)
 
     def check_death(self, creature_list):
         if self.vitals.hunger <= -20 or self.vitals.thirst <= 0:
@@ -186,6 +187,7 @@ class Creature:
         self.targeting.target = self.world.find_closest_shore(
             self.x, self.y, self.targeting.perceived_tiles
         )
+        print(f"{self}entered handle thirsty")
 
     def handle_hungry_state(self, veg, creature_list):
         if self.targeting.target:
@@ -210,6 +212,7 @@ class Creature:
         else:
             if not self.targeting.path:
                 self.set_path()
+                if self.set_path: print(f"path set for {self}")
                 return
 
             if self.targeting.path:
@@ -236,14 +239,17 @@ class Creature:
                                 dx*self.world.tile_size + self.world.tile_size//2,
                                 dy*self.world.tile_size + self.world.tile_size//2
                                 ) 
-            
-        t= self.lerp_prep(self.targeting.pixel_target)
-        self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
-        self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
+        
+        if  self.targeting.pixel_target is not None:
+            t= self.lerp_prep(self.targeting.pixel_target)
+            self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
+            self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
 
         if self.at_pixel_target():
             self.prev_x = self.x
             self.prev_y = self.y
+            self.x = (self.targeting.pixel_target[0] - self.world.tile_size // 2) // self.world.tile_size
+            self.y = (self.targeting.pixel_target[1] - self.world.tile_size // 2) // self.world.tile_size
             self.targeting.pixel_target = None
             
 
@@ -251,17 +257,18 @@ class Creature:
         
         
     #finds a path through TILES.
-    def set_path(self, world):
+    def set_path(self):
         if self.targeting.target:
             self.targeting.path = astar(
                 (self.x, self.y),
                 (self.targeting.target[0], self.targeting.target[1]),
-                world.map_grid,
-                world.grid_width,
-                world.grid_height,
+                self.world.map_grid,
+                self.world.grid_width,
+                self.world.grid_height,
             )
             if not self.targeting.path:
                 self.targeting.target = None
+                print(f"path not found for {self}")
                 
     #Uses vectors to travel between two tiles. basis for pixel based travel
     def pixel_traversal(self):
@@ -314,10 +321,10 @@ class Creature:
             self.targeting.pixel_target = ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2), 
                     (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2))
 
-        
-        t = self.lerp_prep(self.targeting.pixel_target)
-        self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
-        self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
+        if not self.targeting.pixel_target is not None:
+            t = self.lerp_prep(self.targeting.pixel_target)
+            self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
+            self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
 
         if self.at_pixel_target():
             self.prev_x, self.prev_y = self.x, self.y

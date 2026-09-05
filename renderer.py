@@ -14,8 +14,8 @@ class Renderer:
                         self.screen,
                         (255, 255, 255),
                         (
-                            c.x * self.tile_size + self.tile_size//2,
-                            c.y*self.tile_size + self.tile_size//2,
+                            c.px,
+                            c.px,
                         ),
                     5,
                     )
@@ -24,8 +24,8 @@ class Renderer:
                                           self.screen,
                                           (0, 255, 0),
                                           (
-                                               c.x * self.tile_size + self.tile_size//2,
-                                               c.y * self.tile_size + self.tile_size//2,
+                                               c.px ,
+                                               c.py,
                                           ),
                                           5,
                                       )  

@@ -36,4 +36,4 @@ class Genome:
     perceptive_radius: list = field(default_factory=list)
     hunger_threshold: float = 20
     thirst_threshold: float = 30
-    speed: float = 1
+    speed: float = 10

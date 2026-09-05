@@ -5,6 +5,7 @@ from config import WIDTH, HEIGHT, TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, MAX_VEG_CO
 from world import World
 from veg import Veg
 from interactions import *
+from creature import Creature
 from Predator import Predator
 from Prey import Prey
 from renderer import Renderer
@@ -41,7 +42,8 @@ def create_creatures_random(num_predators, num_prey):
 
     return predators, prey, creatures
 
-predators, preys, creatures = create_creatures_random(5, 25)
+#predators, preys, creatures = create_creatures_random(5, 25)
+creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10)]
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
@@ -80,7 +82,7 @@ while running:
         renderer.draw_veg(v)
 
     renderer.flip()
-    dt_ms = clock.tick(5)
+    dt_ms = clock.tick(120)
     world.dt = dt_ms/1000
 
 pygame.quit()
