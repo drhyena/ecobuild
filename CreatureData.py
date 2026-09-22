@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Vitals:
-    hunger: float = 100
+    hunger: float = 50
     thirst: float = 100
 
     def decay(self, hunger_rate=1, thirst_rate=2):
