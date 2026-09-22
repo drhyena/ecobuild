@@ -10,7 +10,7 @@ class Creature:
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2 
         self.py = y*self.world.tile_size + self.world.tile_size//2
-        self.speed = 10
+        self.speed = 20
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -68,8 +68,8 @@ class Creature:
     # -------------------------
 
     def update_needs(self):
-        self.vitals.hunger -= 1*self.world.dt*1.5
-        self.vitals.thirst -= 2*self.world.dt*1.5
+        self.vitals.hunger -= 2*self.world.dt*1.5
+        self.vitals.thirst -= 0*self.world.dt*1.5
 
     def check_essentials(self):
         return {
@@ -182,6 +182,8 @@ class Creature:
 
     def handle_thirsty_state(self):
         if self.targeting.target:
+            print(f"{self}has thirst target")
+            print(self.targeting.target)
             return
         self.update_perceived_tiles()
         self.targeting.target = self.world.find_closest_shore(
@@ -190,6 +192,7 @@ class Creature:
         print(f"{self}entered handle thirsty")
 
     def handle_hungry_state(self, veg, creature_list):
+        print(f"{self} has found target veg: {self.targeting.target_veg}")
         if self.targeting.target:
             return
         self.update_perceived_tiles()
@@ -207,6 +210,8 @@ class Creature:
     # -------------------------
 
     def movement_decider(self):
+        print(f"{self} has entered movement decider with path {self.targeting.path}")
+        print(bool(self.targeting.target))
         if self.targeting.target is None:
             self.wander_randomly()
         else:
@@ -215,7 +220,7 @@ class Creature:
                 if self.set_path: print(f"path set for {self}")
                 return
 
-            if self.targeting.path:
+        if self.targeting.path:
                 self.follow_path()
 
     def notify_travel(self, target):
@@ -316,12 +321,14 @@ class Creature:
         
             
     def follow_path(self):
+        print(f"{self} has entered follow path")
 
         if not self.targeting.pixel_target:           
             self.targeting.pixel_target = ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2), 
                     (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2))
+            print(f"{self} has found pixel_target at {self.targeting.pixel_target} ")
 
-        if not self.targeting.pixel_target is not None:
+        if  self.targeting.pixel_target:
             t = self.lerp_prep(self.targeting.pixel_target)
             self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
             self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
@@ -338,8 +345,10 @@ class Creature:
   
   
     def check_if_new_tile(self):
-        if (self.px,self.py) == ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2),
-                                         (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2)):
+        tile_x = (self.px - self.world.tile_size) / self.world.tile_size   
+        tile_y = (self.py - self.world.tile_size) / self.world.tile_size
+
+        if (tile_x,tile_y) != (self.prev_x,self.prev_y):
             return True
 
 
