@@ -48,7 +48,7 @@ creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactma
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
 
-vege = create_veg_random(15)
+vege = create_veg_random(25)
 
 #veg spawning
 VEG_SPAWN_EVENT = pygame.USEREVENT + 1
