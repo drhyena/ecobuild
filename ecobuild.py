@@ -42,8 +42,11 @@ def create_creatures_random(num_predators, num_prey):
 
     return predators, prey, creatures
 
-#predators, preys, creatures = create_creatures_random(5, 25)
-creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10)]
+predators, prey, creatures = create_creatures_random(5, 25)
+#creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10)]
+
+#creatures = [       Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10]
+
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
