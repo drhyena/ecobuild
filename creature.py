@@ -1,14 +1,23 @@
-import random
 import pygame
 from astar import *
 from CreatureData import Vitals, Genome, Targeting, Reproduction
+from CreatureBehaviors import (
+    PreyMovement,
+    PredatorMovement,
+    ThirstBehavior,
+    PreyHungerBehavior,
+    PredatorHungerBehavior,
+)
 
 
 class Creature:
-    def __init__(self,x, y, world, interaction_manager, vitals=None, genome=None, targeting=None, reproduction=None):
+    def __init__(self, x, y, world, interaction_manager, vitals=None, genome=None,
+                 targeting=None, reproduction=None,
+                 movement=None, hunger_behavior=None, thirst_behavior=None,
+                 hunting_behavior=None):
         self.x, self.y = x, y
         self.world = world
-        self.px = x*self.world.tile_size + self.world.tile_size//2 
+        self.px = x*self.world.tile_size + self.world.tile_size//2
         self.py = y*self.world.tile_size + self.world.tile_size//2
         self.speed = 20
         self.status = ""
@@ -16,6 +25,13 @@ class Creature:
         self.genome = genome if genome is not None else Genome()
         self.targeting = targeting if targeting is not None else Targeting()
         self.reproduction = reproduction if reproduction is not None else Reproduction()
+
+        # behavior components (swap these to PredatorMovement()/PredatorHungerBehavior()
+        # when constructing a predator creature)
+        self.movement = movement if movement is not None else PreyMovement()
+        self.hunger_behavior = hunger_behavior if hunger_behavior is not None else PreyHungerBehavior()
+        self.thirst_behavior = thirst_behavior if thirst_behavior is not None else ThirstBehavior()
+        self.hunting_behavior = hunting_behavior
 
         self.targeting.target = None
         self.targeting.target_veg = None
@@ -33,11 +49,10 @@ class Creature:
 
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
-        self.world = world
         self.alive = True
         self.species = "creature"
-        self.prev_x, self.prev_y = self.x,self.y
-        self.prev_px,self.prev_py = self.px,self.py
+        self.prev_x, self.prev_y = self.x, self.y
+        self.prev_px, self.prev_py = self.px, self.py
 
         # log attributes. Additional data
         self.times_drank = 0
@@ -83,9 +98,6 @@ class Creature:
         return max(utilities, key=utilities.get)
 
     def update_state(self):
-        # Split into two - essential and non-essential. Essentials will include hunger and thirst and the like.
-        # Non-essentials will include reproduction and the like. Non-essentials will require essentials to be fulfilled.
-        # ESSENTIALS
         self.status = self.get_essential_state_decision()
         print(self.status)
 
@@ -95,49 +107,15 @@ class Creature:
             self.interaction_manager.kill_creature(self, creature_list)
 
     # -------------------------
-    # ACTIONS
-    # -------------------------
-
-    def drink_water(self):
-        if self.status == "thirsty":
-            print("drinking")
-            self.vitals.thirst = 100
-            self.times_drank += 1
-
-    def eat_veg(self):
-        if self.status == "hungry":
-            self.vitals.hunger = 100
-            self.times_ate += 1
-
-    # -------------------------
-    # INTERACTION RESOLUTION
+    # INTERACTION RESOLUTION (delegates to hunger/thirst behavior components)
     # -------------------------
 
     def resolve_interaction(self, veg_list, creature_list):
         if self.interaction_manager.is_on_target(self):
             if self.status == "hungry":
-                self.handle_hunger(veg_list, creature_list)
+                self.hunger_behavior.handle_hunger(self, veg_list, creature_list)
             elif self.status == "thirsty":
-                self.handle_thirst()
-
-    def handle_hunger(self, veg_list, creature_list):
-        now = pygame.time.get_ticks()
-        if now - self.last_retarget_time >= self.retarget_interval:
-            self.last_retarget_time = now
-            self.targeting.target = None
-            self.targeting.target_veg = None
-            self.targeting.path = []
-
-        if self.targeting.target_veg and self.targeting.target_veg.alive:
-            if self.targeting.target_veg.claimed_by is None:
-                self.targeting.target_veg.claimed_by = self
-                self.eat_veg()
-                self.interaction_manager.kill_veg(
-                    self.targeting.target_veg, veg_list, creature_list
-                )
-
-    def handle_thirst(self):
-        self.drink_water()
+                self.thirst_behavior.handle_thirst(self)
 
     # -------------------------
     # REPRODUCTION
@@ -169,186 +147,23 @@ class Creature:
         ]
 
     # -------------------------
-    # TARGET DECISION
+    # TARGET DECISION (delegates to hunger/thirst behavior components)
     # -------------------------
 
     def status_checker(self, veg, creature_list):
         if self.status == "hungry":
-            self.handle_hungry_state(veg, creature_list)
+            self.hunger_behavior.handle_hungry_state(self, veg, creature_list)
         elif self.status == "thirsty":
-            self.handle_thirsty_state()
+            self.thirst_behavior.handle_thirsty_state(self)
         else:
             self.targeting.target = None
 
-    def handle_thirsty_state(self):
-        if self.targeting.target:
-            print(f"{self}has thirst target")
-            print(self.targeting.target)
-            return
-        self.update_perceived_tiles()
-        self.targeting.target = self.world.find_closest_shore(
-            self.x, self.y, self.targeting.perceived_tiles
-        )
-        print(f"{self}entered handle thirsty")
-
-    def handle_hungry_state(self, veg, creature_list):
-        print(f"{self} has found target veg: {self.targeting.target_veg}")
-        if self.targeting.target:
-            return
-        self.update_perceived_tiles()
-        self.targeting.target_veg = self.world.find_closest_veg(
-            veg, self.x, self.y, self.targeting.perceived_tiles
-        )
-        if self.targeting.target_veg is None:
-            self.targeting.target = None
-            return
-        if not self.interaction_manager.veg_is_being_targeted(self, creature_list):
-            self.targeting.target = (self.targeting.target_veg.v_x, self.targeting.target_veg.v_y)
-
     # -------------------------
-    # MOVEMENT
+    # MOVEMENT (delegates to movement behavior component)
     # -------------------------
 
     def movement_decider(self):
-        print(f"{self} has entered movement decider with path {self.targeting.path}")
-        print(bool(self.targeting.target))
-        if self.targeting.target is None:
-            self.wander_randomly()
-        else:
-            if not self.targeting.path:
-                self.set_path()
-                if self.set_path: print(f"path set for {self}")
-                return
-
-        if self.targeting.path:
-                self.follow_path()
+        self.movement.movement_decider(self)
 
     def notify_travel(self, target):
-        """Called by interaction manager to assign a travel target."""
-        if not self.targeting.target:  # don't override if already heading somewhere
-            self.targeting.target = target
-            self.targeting.path = []
-
-    #def wander_randomly(self, world):
-       # dx, dy = random.choice(world.get_neighbors(self.x, self.y))
-      #  if world.is_walkable(dx, dy):
-        #    self.prev_x, self.prev_y = self.x, self.y 
-      #      self.x, self.y = dx, dy
-
-
-    def wander_randomly(self):
-        dx, dy = random.choice(self.world.get_neighbors(self.x, self.y))
-        if self.world.is_walkable(dx,dy):
-            if not self.targeting.pixel_target:
-                self.targeting.pixel_target = (
-                                dx*self.world.tile_size + self.world.tile_size//2,
-                                dy*self.world.tile_size + self.world.tile_size//2
-                                ) 
-        
-        if  self.targeting.pixel_target is not None:
-            t= self.lerp_prep(self.targeting.pixel_target)
-            self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
-            self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
-
-        if self.at_pixel_target():
-            self.prev_x = self.x
-            self.prev_y = self.y
-            self.x = (self.targeting.pixel_target[0] - self.world.tile_size // 2) // self.world.tile_size
-            self.y = (self.targeting.pixel_target[1] - self.world.tile_size // 2) // self.world.tile_size
-            self.targeting.pixel_target = None
-            
-
-            
-        
-        
-    #finds a path through TILES.
-    def set_path(self):
-        if self.targeting.target:
-            self.targeting.path = astar(
-                (self.x, self.y),
-                (self.targeting.target[0], self.targeting.target[1]),
-                self.world.map_grid,
-                self.world.grid_width,
-                self.world.grid_height,
-            )
-            if not self.targeting.path:
-                self.targeting.target = None
-                print(f"path not found for {self}")
-                
-    #Uses vectors to travel between two tiles. basis for pixel based travel
-    def pixel_traversal(self):
-        
-        vector_to_target = (((self.targetting.pixel_target[0]) - self.px  ) ,(self.targetting.pixel_target[1] - self.py))
-        
-        v_mag = (vector_to_target[0]**2 
-                                + 
-                 vector_to_target[1]**2)**(1/2)
-        
-        
-        v_dir_x = vector_to_target[0]/v_mag
-        print("v_dirx",v_dir_x)
-        
-        v_dir_y= vector_to_target[1]/v_mag
-        print("v-diry",v_dir_y)
-
-              
-        print("pixel target:",self.targetting.pixel_target)
-        
-        if (self.px,self.py) != self.targetting.pixel_target:
-            self.prev_px = self.px
-            self.prev_py = self.py
-            self.px = round(self.px + self.speed * v_dir_x*self.world.dt,None) 
-            self.py = round(self.py + self.speed * v_dir_y*self.world.dt,None) 
-            print(self.px,self.py)
-            print("p chanegd")
-
-
-    def lerp(self,start,end, t):
-        return  start + (end-start)*t
-        
-    def lerp_prep(self,target):
-        step = self.speed*self.world.dt
-        distance = ((
-                            ((target[0] - self.px)**2) 
-                                       +
-                            (target[1] - self.py)**2)
-                            ) ** (1/2)
-        
-        if step>=distance:
-                return 1
-        else:    
-                return step/distance
-        
-            
-    def follow_path(self):
-        print(f"{self} has entered follow path")
-
-        if not self.targeting.pixel_target:           
-            self.targeting.pixel_target = ((self.targeting.path[0][0]*self.world.tile_size + self.world.tile_size//2), 
-                    (self.targeting.path[0][1]*self.world.tile_size + self.world.tile_size//2))
-            print(f"{self} has found pixel_target at {self.targeting.pixel_target} ")
-
-        if  self.targeting.pixel_target:
-            t = self.lerp_prep(self.targeting.pixel_target)
-            self.px = self.lerp(self.px,self.targeting.pixel_target[0],t)
-            self.py = self.lerp(self.py,self.targeting.pixel_target[1],t)
-
-        if self.at_pixel_target():
-            self.prev_x, self.prev_y = self.x, self.y
-            self.x, self.y = self.targeting.path.pop(0)
-            self.targeting.pixel_target = None
-          
-    
-    def at_pixel_target(self):
-        if (self.px,self.py) ==  self.targeting.pixel_target:
-            return True
-  
-  
-    def check_if_new_tile(self):
-        tile_x = (self.px - self.world.tile_size) / self.world.tile_size   
-        tile_y = (self.py - self.world.tile_size) / self.world.tile_size
-
-        if (tile_x,tile_y) != (self.prev_x,self.prev_y):
-            return True
-
-
+        self.movement.notify_travel(self, target)
