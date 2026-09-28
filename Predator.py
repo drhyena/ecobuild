@@ -11,8 +11,10 @@ class Predator(Creature):
             hunger_behavior=PredatorHungerBehavior(),
             hunting_behavior=PredatorHuntingBehaviour(),
         )
+       
         self.species = "predator"
         self.genome.iq = 0.7
+        self.genome.speed = 40
         self.genome.hunger_threshold = 50
         self.genome.thirst_threshold = 30
 
