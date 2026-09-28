@@ -1,13 +1,6 @@
 import pygame
-from astar import *
 from CreatureData import Vitals, Genome, Targeting, Reproduction
-from CreatureBehaviors import (
-    PreyMovement,
-    PredatorMovement,
-    ThirstBehavior,
-    PreyHungerBehavior,
-    PredatorHungerBehavior,
-)
+from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior
 
 
 class Creature:
@@ -19,7 +12,6 @@ class Creature:
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
         self.py = y*self.world.tile_size + self.world.tile_size//2
-        self.speed = 20
         self.status = ""
         self.vitals = vitals if vitals is not None else Vitals()
         self.genome = genome if genome is not None else Genome()
@@ -60,9 +52,9 @@ class Creature:
         self.times_ate = 0
 
         # time attributes
-        self.birth_time = pygame.time.get_ticks()
-        self.retarget_interval = 5000
-        self.last_retarget_time = pygame.time.get_ticks()
+        self.birth_time = self.world.sim_time
+        self.retarget_interval = 5
+        self.last_retarget_time = self.world.sim_time
 
     # -------------------------
     # MAIN UPDATE LOOP
@@ -83,8 +75,10 @@ class Creature:
     # -------------------------
 
     def update_needs(self):
-        self.vitals.hunger -= 2*self.world.dt*1.5
-        self.vitals.thirst -= 0*self.world.dt*1.5
+        self.vitals.hunger -= self.genome.hunger_rate*self.world.dt*1.5
+        self.vitals.thirst -= self.genome.thirst_rate*self.world.dt*1.5
+        self.vitals.age = self.world.sim_time - self.birth_time
+        self.reproduction.time_since_last_mating +=  self.world.dt
 
     def check_essentials(self):
         return {
@@ -99,10 +93,11 @@ class Creature:
 
     def update_state(self):
         self.status = self.get_essential_state_decision()
+        self.vitals.age = pygame.time.get_ticks() - self.birth_time
         print(self.status)
 
     def check_death(self, creature_list):
-        if self.vitals.hunger <= -20 or self.vitals.thirst <= 0:
+        if self.vitals.hunger <= 0 or self.vitals.thirst <= 0:
             print(f"{self} died at hunger:{self.vitals.hunger}")
             self.interaction_manager.kill_creature(self, creature_list)
 
@@ -122,7 +117,7 @@ class Creature:
     # -------------------------
 
     def check_if_ready_for_a_mate(self):
-        if self.reproduction.time_since_last_mating == self.reproduction.reproductive_interval:
+        if self.reproduction.time_since_last_mating >= self.reproduction.reproductive_interval:
             if self.times_ate > 0 and self.times_drank > 0:
                 return True
 
