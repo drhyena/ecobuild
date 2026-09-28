@@ -35,6 +35,10 @@ class World:
         self.set_maptypes()
         
         self.dt = 0
+        self.sim_time = 0
+
+        self.creature_list = None
+        self.veg_list = None
 
     # --------------------------------------------------
     # WORLD GENERATION
