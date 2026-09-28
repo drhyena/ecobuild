@@ -4,10 +4,9 @@ from dataclasses import dataclass, field
 class Vitals:
     hunger: float = 100
     thirst: float = 100
+    age : float = 0
 
-    def decay(self, hunger_rate=1, thirst_rate=2):
-        self.hunger -= hunger_rate
-        self.thirst -= thirst_rate
+
 
 
 @dataclass
@@ -24,7 +23,6 @@ class Targeting:
 
 @dataclass
 class Reproduction:
-    reproductive_interval: int = 10000
     seeking_mate: bool = False
     ready_to_mate: bool = False
     time_since_last_mating: int = 0
@@ -37,3 +35,10 @@ class Genome:
     hunger_threshold: float = 20
     thirst_threshold: float = 30
     speed: float = 10
+    hunger_rate : int = 1
+    thirst_rate : int = 2    
+    max_hunger: float = 100
+    max_thirst: float = 100
+    fertility: int = 1 #no:of offspring per mating
+    reproductive_interval: int = 10 # time it takes for a creature to be ready_to_mate again.
+
