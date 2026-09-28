@@ -1,9 +1,18 @@
 from astar import astar
 import random
-import pygame
 
 
 class Movement:
+    def __init__(self):
+        self._mode = None
+
+    def _set_mode(self, c, mode):
+        """A pixel_target belongs to the movement mode that created it.
+        When the mode changes (wander / path / step), drop the stale one."""
+        if self._mode != mode:
+            self._mode = mode
+            c.targeting.pixel_target = None
+
     def movement_decider(self, c):
         print(f"{c} has entered movement decider with path {c.targeting.path}")
         print(bool(c.targeting.target))
@@ -26,6 +35,7 @@ class Movement:
             c.targeting.path = []
 
     def wander_randomly(self, c):
+        self._set_mode(c, "wander")
         dx, dy = random.choice(c.world.get_neighbors(c.x, c.y))
         if c.world.is_walkable(dx, dy):
             if not c.targeting.pixel_target:
@@ -76,13 +86,14 @@ class Movement:
         if (c.px, c.py) != pixel_target:
             c.prev_px = c.px
             c.prev_py = c.py
-            c.px = round(c.px + c.speed * v_dir_x * c.world.dt, None)
-            c.py = round(c.py + c.speed * v_dir_y * c.world.dt, None)
+            c.px = round(c.px + c.genome.speed * v_dir_x * c.world.dt, None)
+            c.py = round(c.py + c.genome.speed * v_dir_y * c.world.dt, None)
             print(c.px, c.py)
             print("p chanegd")
 
     def follow_path(self, c):
         print(f"{c} has entered follow path")
+        self._set_mode(c, "path")
 
         if not c.targeting.pixel_target:
             c.targeting.pixel_target = (
@@ -102,10 +113,12 @@ class Movement:
             c.targeting.pixel_target = None
 
     def lerp(self, start, end, t):
+        if t >= 1:
+            return end
         return start + (end - start) * t
 
     def lerp_prep(self, c, target):
-        step = c.speed * c.world.dt
+        step = c.genome.speed * c.world.dt
         distance = ((target[0] - c.px) ** 2 + (target[1] - c.py) ** 2) ** (1 / 2)
 
         if step >= distance:
@@ -117,78 +130,36 @@ class Movement:
         if (c.px, c.py) == c.targeting.pixel_target:
             return True
 
+    def move_to_tile(self, c, tile):
+        """Pixel-based step toward an adjacent tile (used by fleeing/hunting).
+        Latches pixel_target so the step finishes even if `tile` is re-chosen
+        mid-step; c.x/c.y only update on arrival."""
+        self._set_mode(c, "step")
+        ts = c.world.tile_size
+        if c.targeting.pixel_target is None:
+            c.targeting.pixel_target = (
+                tile[0] * ts + ts // 2,
+                tile[1] * ts + ts // 2,
+            )
+
+        target = c.targeting.pixel_target
+        t = self.lerp_prep(c, target)
+        c.px = self.lerp(c.px, target[0], t)
+        c.py = self.lerp(c.py, target[1], t)
+
+        if self.at_pixel_target(c):
+            c.prev_x, c.prev_y = c.x, c.y
+            c.x = (target[0] - ts // 2) // ts
+            c.y = (target[1] - ts // 2) // ts
+            c.targeting.pixel_target = None
+            c.targeting.target = None  # step done; the state handler picks the next one
+
     def check_if_new_tile(self, c):
         tile_x = (c.px - c.world.tile_size) / c.world.tile_size
         tile_y = (c.py - c.world.tile_size) / c.world.tile_size
 
         if (tile_x, tile_y) != (c.prev_x, c.prev_y):
             return True
-
-
-class PredatorMovement(Movement):
-    def movement_decider(self, c):
-        if c.targeting.target is None:
-            self.wander_randomly(c)
-        elif c.status == "hunting":
-            self.hunting_movement(c)
-        else:
-            if not c.targeting.path:
-                self.set_path(c)
-                return
-            if c.targeting.path:
-                self.follow_path(c)
-
-    def hunting_movement(self, c):
-        c.prev_x, c.prev_y = c.x, c.y
-        c.x, c.y = c.targeting.target
-
-
-class PreyMovement(Movement):
-    def movement_decider(self, c):
-        if c.targeting.target is None:
-            self.wander_randomly(c)
-        elif c.status == "fleeing":
-            self.flee_movement(c)
-        else:
-            if not c.targeting.path:
-                self.set_path(c)
-                return
-            if c.targeting.path:
-                self.follow_path(c)
-
-    def flee_movement(self, c):
-        if not c.targeting.target:
-            return
-        c.prev_x, c.prev_y = c.x, c.y
-        c.x, c.y = c.targeting.target
-
-    def handle_flee_state(self, c):
-        # Predator gone
-        if not c.targeting.targeted_by or not c.targeting.targeted_by.alive:
-            c.targeting.targeted_by = None
-            c.targeting.target = None
-            return
-        if random.random() < (1 - c.genome.iq):
-            return
-        predator = c.targeting.targeted_by
-
-        dx = c.x - predator.x
-        dy = c.y - predator.y
-
-        step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
-        step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
-
-        # IQ-based directional distortion
-        if random.random() < (1 - c.genome.iq):
-            step_x, step_y = step_y, step_x
-
-        new_x = c.x + step_x
-        new_y = c.y + step_y
-
-        if c.world.is_walkable(new_x, new_y):
-            c.targeting.target = (new_x, new_y)
-        else:
-            c.targeting.target = None
 
 
 class ThirstBehavior:
@@ -213,9 +184,57 @@ class ThirstBehavior:
         print(f"{c}entered handle thirsty")
 
 
+class PreyMovement(Movement):
+    def movement_decider(self, c):
+        if c.targeting.target is None:
+            self.wander_randomly(c)
+        elif c.status == "fleeing":
+            self.flee_movement(c)
+        else:
+            if not c.targeting.path:
+                self.set_path(c)
+                return
+            if c.targeting.path:
+                self.follow_path(c)
+
+    def flee_movement(self, c):
+        if not c.targeting.target:
+            return
+        self.move_to_tile(c, c.targeting.target)
+
+    def handle_flee_state(self, c):
+        predator = c.targeting.targeted_by
+        # Predator gone
+        if not predator or not predator.alive:
+            c.targeting.targeted_by = None
+            c.targeting.target = None
+            return
+
+        world = c.world
+        here = (c.x, c.y)
+
+        def dist2(tile):
+            return (tile[0] - predator.x) ** 2 + (tile[1] - predator.y) ** 2
+
+        options = [t for t in world.get_neighbors(c.x, c.y) if world.is_walkable(*t)]
+        if not options:
+            c.targeting.target = here  # cornered: hold still
+            return
+
+        # Best move: farthest from the predator (standing still counts as an option)
+        best = max(options + [here], key=dist2)
+
+        # IQ-based mistakes: a panicked step is random but never closer to the predator
+        if random.random() < (1 - c.genome.iq):
+            pool = [t for t in options if dist2(t) >= dist2(here)]
+            best = random.choice(pool) if pool else best
+
+        c.targeting.target = best
+
+
 class PreyHungerBehavior:
     def handle_hunger(self, c, veg_list, creature_list):
-        now = pygame.time.get_ticks()
+        now = c.world.sim_time
         if now - c.last_retarget_time >= c.retarget_interval:
             c.last_retarget_time = now
             c.targeting.target = None
@@ -247,8 +266,48 @@ class PreyHungerBehavior:
             return
         if not c.interaction_manager.veg_is_being_targeted(c, creature_list):
             c.targeting.target = (c.targeting.target_veg.v_x, c.targeting.target_veg.v_y)
-            c.last_retarget_time = pygame.time.get_ticks()
+            c.last_retarget_time = c.world.sim_time
 
+
+class PredatorMovement(Movement):
+    def movement_decider(self, c):
+        if c.targeting.target is None:
+            self.wander_randomly(c)
+        elif c.status == "hunting":
+            self.hunting_movement(c)
+        else:
+            if not c.targeting.path:
+                self.set_path(c)
+                return
+            if c.targeting.path:
+                self.follow_path(c)
+
+    POUNCE_RANGE = 4  # pixels
+
+    def hunting_movement(self, c):
+        if self.pounce(c):
+            return
+        if not c.targeting.target:
+            return
+        self.move_to_tile(c, c.targeting.target)
+        self.pounce(c)  # the step may have closed the gap
+
+    def pounce(self, c):
+        prey = c.targeting.target_creature
+        if prey is None or not prey.alive:
+            return False
+
+        dx = prey.px - c.px
+        dy = prey.py - c.py
+        if dx * dx + dy * dy > self.POUNCE_RANGE ** 2:
+            return False
+
+        c.prev_x, c.prev_y = c.x, c.y
+        c.px, c.py = prey.px, prey.py          # pixel position
+        c.x, c.y = prey.x, prey.y              # tile position
+        c.targeting.pixel_target = None        # cancel any step in progress
+        c.targeting.target = (prey.x, prey.y)  # now "on target" for the eat check
+        return True
 
 class PredatorHungerBehavior:
     def handle_hunger(self, c, creature_list):
@@ -321,7 +380,7 @@ class PredatorHungerBehavior:
 
 class PredatorHuntingBehaviour:
     def handle_hunting_state(self, c):
-        now = pygame.time.get_ticks()
+        now = c.world.sim_time
         if now - c.last_retarget_time >= c.retarget_interval:
             c.last_retarget_time = now
             c.targeting.target_creature = None
@@ -334,33 +393,28 @@ class PredatorHuntingBehaviour:
             return
 
         target_creature = c.targeting.target_creature
+        world = c.world
 
-        # --- Compute velocity of prey ---
+        # Aim straight at the prey when close; lead it only when it is far away
+        dist = max(abs(target_creature.x - c.x), abs(target_creature.y - c.y))
+        k = 0 if dist <= 2 else 2
+
         vx = target_creature.x - target_creature.prev_x
         vy = target_creature.y - target_creature.prev_y
 
-        # Prediction horizon (can scale with IQ later)
-        k = 2
+        pred_x = max(0, min(world.grid_width - 1, target_creature.x + vx * k))
+        pred_y = max(0, min(world.grid_height - 1, target_creature.y + vy * k))
 
-        pred_x = target_creature.x + vx * k
-        pred_y = target_creature.y + vy * k
+        here = (c.x, c.y)
 
-        # Clamp to world bounds
-        pred_x = max(0, min(c.world.grid_width - 1, pred_x))
-        pred_y = max(0, min(c.world.grid_height - 1, pred_y))
+        def score(tile):
+            # Chebyshev distance to the aim point (no diagonal bias),
+            # ties broken by real distance to the prey
+            return (
+                max(abs(tile[0] - pred_x), abs(tile[1] - pred_y)),
+                (tile[0] - target_creature.x) ** 2 + (tile[1] - target_creature.y) ** 2,
+            )
 
-        # --- Choose neighbour minimizing distance to predicted position ---
-        best_tile = None
-        best_score = float("inf")
-
-        for nx, ny in c.world.get_neighbors(c.x, c.y):
-            if not c.world.is_walkable(nx, ny):
-                continue
-
-            dist = abs(nx - pred_x) + abs(ny - pred_y)
-
-            if dist < best_score:
-                best_score = dist
-                best_tile = (nx, ny)
-
-        c.targeting.target = best_tile
+        candidates = [t for t in world.get_neighbors(c.x, c.y) if world.is_walkable(*t)]
+        candidates.append(here)  # standing still is allowed, so it never steps backwards
+        c.targeting.target = min(candidates, key=score)
