@@ -26,6 +26,7 @@ class Reproduction:
     seeking_mate: bool = False
     ready_to_mate: bool = False
     time_since_last_mating: int = 0
+    current_mate : object = None 
 
 
 @dataclass

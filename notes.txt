@@ -25,3 +25,19 @@ distance b/w target and current.
 step value(displacement) = self.speed * world.dt
 
 t= step/distance
+
+
+REPRODUCTION
+
+a creature reaches maturity when it has lived for 10s. 
+
+AND is not thirsty and hungry. 
+
+
+flow of REPRODUCTION.
+
+1. creature matures / reproductive interval is over.
+2. creature seeks a viable mate ( another creature who's 1st condition is fullfilled)
+3. creature , after finding a viable partner, designates the other as its mate. 
+4. creature, all 3 conditions are met AND is neither hungry nor thirsty, mates and produces (fertility) no: of offspring. 
+5. creature exhibits different nature dependant on its iq. higher iq = higher chance to designate partner as mate for life, lower iq, higher chance for it being a one time mate.

@@ -7,8 +7,6 @@ class Movement:
         self._mode = None
 
     def _set_mode(self, c, mode):
-        """A pixel_target belongs to the movement mode that created it.
-        When the mode changes (wander / path / step), drop the stale one."""
         if self._mode != mode:
             self._mode = mode
             c.targeting.pixel_target = None
@@ -16,9 +14,11 @@ class Movement:
     def movement_decider(self, c):
         print(f"{c} has entered movement decider with path {c.targeting.path}")
         print(bool(c.targeting.target))
-        if c.targeting.target is None:
+        if c.targeting.target is None and c.reproduction.possible_mate is None:
             self.wander_randomly(c)
         else:
+            if c.reproduction.possible_mate:
+                c.targeting.path = self.find_midpoint_between_mates(c)
             if not c.targeting.path:
                 self.set_path(c)
                 if c.targeting.path:
@@ -28,12 +28,24 @@ class Movement:
         if c.targeting.path:
             self.follow_path(c)
 
+
+
+
     def notify_travel(self, c, target):
         """Called by interaction manager to assign a travel target."""
         if not c.targeting.target:  # don't override if already heading somewhere
             c.targeting.target = target
             c.targeting.path = []
 
+    
+    #def wander_to_a_new_region(self,c)
+
+   
+   # def wander_state_machine(self,c):
+    #    if c.vitals.age %10 == 0:
+     #       self.wander_far(_
+    
+    
     def wander_randomly(self, c):
         self._set_mode(c, "wander")
         dx, dy = random.choice(c.world.get_neighbors(c.x, c.y))
@@ -70,26 +82,6 @@ class Movement:
                 c.targeting.target = None
                 print(f"path not found for {c}")
 
-    # uses vectors to travel between two tiles. basis for pixel based travel
-    def pixel_traversal(self, c, dt, pixel_target):
-        vector_to_target = (pixel_target[0] - c.px, pixel_target[1] - c.py)
-        v_mag = (vector_to_target[0] ** 2 + vector_to_target[1] ** 2) ** (1 / 2)
-
-        v_dir_x = vector_to_target[0] / v_mag
-        print("v_dirx", v_dir_x)
-
-        v_dir_y = vector_to_target[1] / v_mag
-        print("v-diry", v_dir_y)
-
-        print("pixel target:", pixel_target)
-
-        if (c.px, c.py) != pixel_target:
-            c.prev_px = c.px
-            c.prev_py = c.py
-            c.px = round(c.px + c.genome.speed * v_dir_x * c.world.dt, None)
-            c.py = round(c.py + c.genome.speed * v_dir_y * c.world.dt, None)
-            print(c.px, c.py)
-            print("p chanegd")
 
     def follow_path(self, c):
         print(f"{c} has entered follow path")

@@ -91,9 +91,24 @@ class Creature:
         utilities = self.check_essentials()
         return max(utilities, key=utilities.get)
 
+    def get_non_essential_state_decision(self):
+        if self.status == "seeking mate":
+            self.reproduction.possible_mate = self.world.get_closest_mate(self)
+            if self.reproduction.possible_mate:
+                return 
+
+        if self.age>10 and self.reproduction.time_since_last_mating > self.genome.reproductive_interval:
+            if self.vitals.thirst > 80 and self.vitals.hunger > 80: 
+                self.status = "seeking_mate"
+
+        
+        
+
     def update_state(self):
         self.status = self.get_essential_state_decision()
-        self.vitals.age = pygame.time.get_ticks() - self.birth_time
+        self.vitals.age = self.world.sim_time - self.birth_time
+        if self.status == "wandering":
+            self.get_non_essential_state_decision
         print(self.status)
 
     def check_death(self, creature_list):

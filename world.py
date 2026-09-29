@@ -170,6 +170,38 @@ class World:
 
         return closest_shore
 
+
+    def find_closest_mate(self, c, creature_list):
+        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
+
+        if not perceived_creatures:
+            print("no perceived creatures")
+            return None
+
+        closest_creature = None
+        min_distance = float('inf')
+
+        for other in perceived_creatures:
+            if other == c:
+                continue  # don't target itself 
+            if other.species == self.species:
+                continue   # only target prey.
+
+            dx = other.x - c.x
+            dy = other.y - c.y
+            distance = dx * dx + dy * dy  # squared distance (faster than sqrt)
+
+            if distance < min_distance:
+                min_distance = distance
+                closest_creature = other
+
+        return closest_creature
+
+
+
+
+
+
     def find_closest_prey(self, c, creature_list):
         perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
 
