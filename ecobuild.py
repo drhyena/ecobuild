@@ -1,7 +1,11 @@
+import sys
+sys.dont_write_bytecode = True
+
+
 import pygame
 import random
 from astar import *
-from config import WIDTH, HEIGHT, TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, MAX_VEG_COUNT, NOISE_SCALE, NOISE_OCTAVES,NOISE_PERSISTENCE, NOISE_LACUNARITY,WORLD_SEED
+from config import WIDTH, HEIGHT, TILE_SIZE, GRID_WIDTH, GRID_HEIGHT, NOISE_SCALE,WORLD_SEED
 from world import World
 from veg import Veg
 from interactions import *

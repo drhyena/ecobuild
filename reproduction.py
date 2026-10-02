@@ -1,6 +1,0 @@
-class Reproduction_Behavior:
-
-      
-              
-         
-         

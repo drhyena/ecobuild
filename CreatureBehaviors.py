@@ -30,6 +30,10 @@ class Movement:
 
 
 
+        
+
+
+
 
     def notify_travel(self, c, target):
         """Called by interaction manager to assign a travel target."""
@@ -152,6 +156,38 @@ class Movement:
 
         if (tile_x, tile_y) != (c.prev_x, c.prev_y):
             return True
+
+
+
+
+class ReproductionBehavior:
+    def mating_point_setter(self,c):
+        test_path = astar(
+            (c.x, c.y),
+            (c.reproduction.possible_mate.x, c.reproduction.possible_mate.y),
+            c.world.map_grid,
+            c.world.grid_width,
+            c.world.grid_height
+        )
+
+        if not test_path:
+            c.targeting.target_creature = None
+            c.targeting.target = None
+            return
+
+        test_path1= test_path[len(test_path)//2]
+        test_path2 = test_path[:len(test_path)//2]
+
+        c.reproductionmanager.set_midpoint(c,test_path1,test_path2)
+
+    def handle_mating(self,c):
+        
+
+
+        
+
+
+    
 
 
 class ThirstBehavior:

@@ -14,9 +14,13 @@ class ReproductionManager:
               
 
     def check_for_viable_mate(self,c):
-         pass
-              
-              
-              
-         
+         c.reproduction.possible_mate = c.world.find_closest_mate()
+                            
+
+    def set_midpoint(self,c,test_path1,test_path2):
+         c.targeting.target = test_path1[len(test_path1)-1]
+         c.reproduction.possible_mate.targeting.target = test_path2[len(test_path2)-1]
+         c.targeting.path = test_path1
+         c.reproduction.possible_mate.targeting.target_path = test_path2
+
          

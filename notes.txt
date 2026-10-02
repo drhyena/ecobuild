@@ -41,3 +41,29 @@ flow of REPRODUCTION.
 3. creature , after finding a viable partner, designates the other as its mate. 
 4. creature, all 3 conditions are met AND is neither hungry nor thirsty, mates and produces (fertility) no: of offspring. 
 5. creature exhibits different nature dependant on its iq. higher iq = higher chance to designate partner as mate for life, lower iq, higher chance for it being a one time mate.
+
+
+
+
+REPRODUCTION:
+A dataclass within CreatureData.
+holds all INFORMATION about reproduction. Some information such as reproductive_interval, however, is held by class Genome as it plays a heavy role in creature evolution.
+
+
+REPRODUCTIONBEHAVIOR:
+A behavior class within CreatureBehvaior. 
+It holds all simulated actions that a creature can take related to reproduction. 
+
+
+REPRODUCTIONMANAGER:
+
+An interface between the reproductive system and the rest of the simulations. 
+The manager is responsible for checks and instructions. Essentially the coorindator of reproduction.
+It sets mates, target location and oversees the actual process of reproduction ; managing REPRODUCTION, enabling REPRODUCTIONBEHAVIOR.
+
+
+to manage reproducttion
+
+add creatures into a queue. 
+the queue will contain pairs of (c, c.mate). if at any point a successive c has already been registered as c.mate, it will skip. 
+a similar queue can be implememnted for the animation of mating. ( simply assign a common tile where both creatures can meet that is fired off of the firs creature.)

@@ -13,7 +13,7 @@ class Vitals:
 class Targeting:
     target: tuple = None
     path: list = field(default_factory=list)
-    perceived_tiles: list = field(default_factory=list)
+    perceived_tiles: set = field(default_factory=list)
     target_veg: object = None
     target_creature: object = None
     targeted_by: object = None
@@ -26,7 +26,7 @@ class Reproduction:
     seeking_mate: bool = False
     ready_to_mate: bool = False
     time_since_last_mating: int = 0
-    current_mate : object = None 
+    current_mate = object = None
 
 
 @dataclass

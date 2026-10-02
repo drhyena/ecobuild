@@ -129,7 +129,7 @@ class World:
             if 0 <= nx < self.grid_width and 0 <= ny < self.grid_height:
                 neighbors.append((nx, ny))
 
-        return neighbors
+        return set(neighbors)
 
     # --------------------------------------------------
     # SEARCH FUNCTIONS
@@ -248,7 +248,7 @@ class World:
             if (other.x, other.y) in creature.targeting.perceived_tiles:
                 visible_creatures.append(other)
 
-        return visible_creatures
+        return set(visible_creatures)
     
     def compute_best_flee_tile(self, prey, predator):
         if predator is None:
