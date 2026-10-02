@@ -92,14 +92,18 @@ class Creature:
         return max(utilities, key=utilities.get)
 
     def get_non_essential_state_decision(self):
-        if self.status == "seeking mate":
+        if self.status == "seeking_mate":
             self.reproduction.possible_mate = self.world.get_closest_mate(self)
-            if self.reproduction.possible_mate:
+            if not self.reproduction.possible_mate:
                 return 
 
         if self.age>10 and self.reproduction.time_since_last_mating > self.genome.reproductive_interval:
             if self.vitals.thirst > 80 and self.vitals.hunger > 80: 
                 self.status = "seeking_mate"
+
+        if self.reproduction.possible_mate and self.status == "seeking_mate":
+            self.status = "mating"
+                
 
         
         
@@ -126,6 +130,8 @@ class Creature:
                 self.hunger_behavior.handle_hunger(self, veg_list, creature_list)
             elif self.status == "thirsty":
                 self.thirst_behavior.handle_thirst(self)
+            elif self.status == "mating" and self.reproductionmanager.check_if_with_mate():
+                self.reproduction_behavior.handle_mating(self)
 
     # -------------------------
     # REPRODUCTION
