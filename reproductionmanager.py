@@ -23,4 +23,6 @@ class ReproductionManager:
          c.targeting.path = test_path1
          c.reproduction.possible_mate.targeting.target_path = test_path2
 
-         
+
+     def check_if_creatures_are_at_mating_point(self,c):
+         if c.targeting.target
