@@ -110,7 +110,8 @@ class World:
     # --------------------------------------------------
     # UTILITIES
     # --------------------------------------------------
-
+    def is_at(self,x,y,c):
+        if (c.x,c.y) == (x,y)    
     def is_walkable(self, x, y):
         if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
             return self.map_grid[x][y] == "land"
