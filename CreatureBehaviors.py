@@ -26,7 +26,8 @@ class Movement:
                 return
 
         if c.targeting.path:
-            self.follow_path(c)
+            self.follow_path(c) 
+
 
 
 
@@ -181,7 +182,8 @@ class ReproductionBehavior:
         c.reproductionmanager.set_midpoint(c,test_path1,test_path2)
 
     def handle_mating(self,c):
-        
+        self.mating_point_setter(c)
+
 
 
         
