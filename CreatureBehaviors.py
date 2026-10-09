@@ -176,22 +176,28 @@ class ReproductionBehavior:
             c.targeting.target = None
             return
 
-        test_path1= test_path[len(test_path)//2]
-        test_path2 = test_path[:len(test_path)//2]
+        mid = len(test_path) // 2
+        test_path1 = test_path[:mid]          # start -> just before midpoint
+        test_path2 = test_path[mid:][::-1]    # end -> midpoint (inclusive)
 
         c.reproductionmanager.set_midpoint(c,test_path1,test_path2)
 
     def handle_mating(self,c):
-        self.mating_point_setter(c)
+        if not c.targeting.mating_point:
+            c.mating_point_setter(c)
 
-
-
-        
+        if c.reproductionmanager.check_if_creatures_at_mating_point():
+            self.mate(c,c.reproduction.possible_mate)
 
 
     
 
+        
 
+
+
+
+    
 class ThirstBehavior:
     def handle_thirst(self, c):
         self.drink_water(c)

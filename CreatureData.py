@@ -18,6 +18,7 @@ class Targeting:
     target_creature: object = None
     targeted_by: object = None
     pixel_target: tuple = None
+    mating_point: tuple = None
     
 
 
@@ -42,4 +43,5 @@ class Genome:
     max_thirst: float = 100
     fertility: int = 1 #no:of offspring per mating
     reproductive_interval: int = 10 # time it takes for a creature to be ready_to_mate again.
+    type: str = "creature"
 

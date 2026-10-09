@@ -2,6 +2,10 @@ import random
 from opensimplex import OpenSimplex
 
 
+
+
+
+
 class World:
     def __init__(
         self,

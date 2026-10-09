@@ -1,3 +1,6 @@
+from Predator import Predator
+from Prey import Prey
+
 class ReproductionManager:
     def check_if_mature(c):
          return c.vitals.age>10
@@ -18,11 +21,21 @@ class ReproductionManager:
                             
 
     def set_midpoint(self,c,test_path1,test_path2):
-         c.targeting.target = test_path1[len(test_path1)-1]
-         c.reproduction.possible_mate.targeting.target = test_path2[len(test_path2)-1]
+         c.targeting.target = test_path1[0]
+         c.reproduction.possible_mate.targeting.target = test_path2[0]
          c.targeting.path = test_path1
          c.reproduction.possible_mate.targeting.target_path = test_path2
 
+    def check_if_creatures_are_at_mating_point(self,c):
+         mate = c.reproduction.possible_mate
+         if c.targeting.target == (c.x,c.y) and mate.targeting.target == (mate.x,mate.y):
+              return True
 
-     def check_if_creatures_are_at_mating_point(self,c):
-         if c.targeting.target
+     
+     
+     
+     def mate(c):
+         if c.genome.type in ["prey","creature"]:
+              c.world.creature_list.append(Prey())
+              
+         
