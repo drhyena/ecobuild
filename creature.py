@@ -1,13 +1,15 @@
 import pygame
 from CreatureData import Vitals, Genome, Targeting, Reproduction
-from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior
+from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
+from reproductionmanager import ReproductionManager
 
 
 class Creature:
     def __init__(self, x, y, world, interaction_manager, vitals=None, genome=None,
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
-                 hunting_behavior=None):
+                 hunting_behavior=None, reproductionmanager=None,
+                 reproduction_behavior=None):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -24,6 +26,8 @@ class Creature:
         self.hunger_behavior = hunger_behavior if hunger_behavior is not None else PreyHungerBehavior()
         self.thirst_behavior = thirst_behavior if thirst_behavior is not None else ThirstBehavior()
         self.hunting_behavior = hunting_behavior
+        self.reproductionmanager = reproductionmanager if reproductionmanager is not None else ReproductionManager()
+        self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
 
         self.targeting.target = None
         self.targeting.target_veg = None
@@ -92,27 +96,28 @@ class Creature:
         return max(utilities, key=utilities.get)
 
     def get_non_essential_state_decision(self):
-        if self.status == "seeking_mate":
-            self.reproduction.possible_mate = self.world.get_closest_mate(self)
-            if not self.reproduction.possible_mate:
-                return 
+        rm = self.reproductionmanager
+        if self.reproduction.current_mate is None:
+            if not (rm.check_if_ready_to_seek_mate(self) and rm.check_if_well_fed(self)):
+                return
+            rm.check_for_viable_mate(self)
+            if rm.check_if_ready_to_reproduce(self):
+                self.status = "mating"
 
-        if self.age>10 and self.reproduction.time_since_last_mating > self.genome.reproductive_interval:
-            if self.vitals.thirst > 80 and self.vitals.hunger > 80: 
-                self.status = "seeking_mate"
-
-        if self.reproduction.possible_mate and self.status == "seeking_mate":
-            self.status = "mating"
-                
-
-        
-        
+    def validate_mate(self):
+        """Drop the mating plan if the partner has died."""
+        mate = self.reproduction.current_mate
+        if mate is not None and not mate.alive:
+            self.reproductionmanager.cancel_mating(self)
 
     def update_state(self):
+        self.validate_mate()
         self.status = self.get_essential_state_decision()
         self.vitals.age = self.world.sim_time - self.birth_time
-        if self.status == "wandering":
-            self.get_non_essential_state_decision
+        if self.reproduction.current_mate is not None:
+            self.status = "mating"
+        elif self.status == "wandering":
+            self.get_non_essential_state_decision()
         print(self.status)
 
     def check_death(self, creature_list):
@@ -125,29 +130,30 @@ class Creature:
     # -------------------------
 
     def resolve_interaction(self, veg_list, creature_list):
+        if self.status == "mating":
+            self.reproduction_behavior.handle_mating(self)
+            return
+
         if self.interaction_manager.is_on_target(self):
             if self.status == "hungry":
                 self.hunger_behavior.handle_hunger(self, veg_list, creature_list)
             elif self.status == "thirsty":
                 self.thirst_behavior.handle_thirst(self)
-            elif self.status == "mating" and self.reproductionmanager.check_if_with_mate():
-                self.reproduction_behavior.handle_mating(self)
 
     # -------------------------
     # REPRODUCTION
     # -------------------------
 
     def check_if_ready_for_a_mate(self):
-        if self.reproduction.time_since_last_mating >= self.reproduction.reproductive_interval:
-            if self.times_ate > 0 and self.times_drank > 0:
-                return True
+        rm = self.reproductionmanager
+        return rm.check_if_ready_to_seek_mate(self) and rm.check_if_well_fed(self)
 
     # -------------------------
     # SIGNAL
     # -------------------------
 
-    def creature_receive_signal(self, from_, tile):
-        self.signal = {"type": type, "from": from_, "tile": tile}
+    def creature_receive_signal(self, from_, tile, signal_type=None):
+        self.signal = {"type": signal_type, "from": from_, "tile": tile}
 
     # -------------------------
     # PERCEPTION
@@ -171,6 +177,8 @@ class Creature:
             self.hunger_behavior.handle_hungry_state(self, veg, creature_list)
         elif self.status == "thirsty":
             self.thirst_behavior.handle_thirsty_state(self)
+        elif self.status == "mating":
+            self.reproduction_behavior.handle_mating_state(self)
         else:
             self.targeting.target = None
 
