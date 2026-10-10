@@ -12,29 +12,22 @@ class Movement:
             c.targeting.pixel_target = None
 
     def movement_decider(self, c):
-        print(f"{c} has entered movement decider with path {c.targeting.path}")
-        print(bool(c.targeting.target))
-        if c.targeting.target is None and c.reproduction.possible_mate is None:
+        if c.status == "mating":
+            self.mating_movement(c)
+            return
+        if c.targeting.target is None:
             self.wander_randomly(c)
         else:
-            if c.reproduction.possible_mate:
-                c.targeting.path = self.find_midpoint_between_mates(c)
             if not c.targeting.path:
                 self.set_path(c)
-                if c.targeting.path:
-                    print(f"path set for {c}")
                 return
+            self.follow_path(c)
 
+    def mating_movement(self, c):
+        """Walk the path set by ReproductionManager.set_midpoint, then wait
+        at the mating point for the partner."""
         if c.targeting.path:
-            self.follow_path(c) 
-
-
-
-
-        
-
-
-
+            self.follow_path(c)
 
     def notify_travel(self, c, target):
         """Called by interaction manager to assign a travel target."""
@@ -53,7 +46,7 @@ class Movement:
     
     def wander_randomly(self, c):
         self._set_mode(c, "wander")
-        dx, dy = random.choice(c.world.get_neighbors(c.x, c.y))
+        dx, dy = random.choice(list(c.world.get_neighbors(c.x, c.y)))
         if c.world.is_walkable(dx, dy):
             if not c.targeting.pixel_target:
                 c.targeting.pixel_target = (
@@ -162,42 +155,40 @@ class Movement:
 
 
 class ReproductionBehavior:
-    def mating_point_setter(self,c):
+    def mating_point_setter(self, c):
+        mate = c.reproduction.current_mate
         test_path = astar(
             (c.x, c.y),
-            (c.reproduction.possible_mate.x, c.reproduction.possible_mate.y),
+            (mate.x, mate.y),
             c.world.map_grid,
             c.world.grid_width,
             c.world.grid_height
         )
 
         if not test_path:
-            c.targeting.target_creature = None
-            c.targeting.target = None
+            # unreachable partner: drop the plan and wait a full interval before retrying
+            c.reproductionmanager.cancel_mating(c)
+            c.reproduction.time_since_last_mating = 0
             return
 
-        mid = len(test_path) // 2
-        test_path1 = test_path[:mid]          # start -> just before midpoint
-        test_path2 = test_path[mid:][::-1]    # end -> midpoint (inclusive)
+        test_path1, test_path2 = c.reproductionmanager.split_path(test_path)
+        c.reproductionmanager.set_midpoint(c, test_path1, test_path2)
 
-        c.reproductionmanager.set_midpoint(c,test_path1,test_path2)
-
-    def handle_mating(self,c):
+    def handle_mating_state(self, c):
+        """Called from status_checker: plan the meeting point once."""
+        if c.reproduction.current_mate is None:
+            return
         if not c.targeting.mating_point:
-            c.mating_point_setter(c)
+            self.mating_point_setter(c)
 
-        if c.reproductionmanager.check_if_creatures_at_mating_point():
-            self.mate(c,c.reproduction.possible_mate)
-
-
-    
-
-        
-
+    def handle_mating(self, c):
+        """Called from resolve_interaction: mate once both creatures are at the mating point."""
+        if c.reproduction.current_mate is None:
+            return
+        if c.reproductionmanager.check_if_creatures_are_at_mating_point(c):
+            c.reproductionmanager.mate(c)
 
 
-
-    
 class ThirstBehavior:
     def handle_thirst(self, c):
         self.drink_water(c)
@@ -222,7 +213,9 @@ class ThirstBehavior:
 
 class PreyMovement(Movement):
     def movement_decider(self, c):
-        if c.targeting.target is None:
+        if c.status == "mating":
+            self.mating_movement(c)
+        elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "fleeing":
             self.flee_movement(c)
@@ -307,7 +300,9 @@ class PreyHungerBehavior:
 
 class PredatorMovement(Movement):
     def movement_decider(self, c):
-        if c.targeting.target is None:
+        if c.status == "mating":
+            self.mating_movement(c)
+        elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "hunting":
             self.hunting_movement(c)
