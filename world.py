@@ -2,10 +2,6 @@ import random
 from opensimplex import OpenSimplex
 
 
-
-
-
-
 class World:
     def __init__(
         self,
@@ -41,8 +37,10 @@ class World:
         self.dt = 0
         self.sim_time = 0
 
-        self.creature_list = None
-        self.veg_list = None
+        # Owned by the world. The main loop assigns its own lists here, so these
+        # must be the same list objects it appends to (never copies).
+        self.creature_list = []
+        self.veg_list = []
 
     # --------------------------------------------------
     # WORLD GENERATION
@@ -114,8 +112,9 @@ class World:
     # --------------------------------------------------
     # UTILITIES
     # --------------------------------------------------
-    def is_at(self,x,y,c):
-        if (c.x,c.y) == (x,y)    
+    def is_at(self, x, y, c):
+        return (c.x, c.y) == (x, y)
+
     def is_walkable(self, x, y):
         if 0 <= x < self.grid_width and 0 <= y < self.grid_height:
             return self.map_grid[x][y] == "land"
@@ -140,13 +139,13 @@ class World:
     # SEARCH FUNCTIONS
     # --------------------------------------------------
 
-    def find_closest_veg(self, veg_list, x, y, perceived_tiles):
+    def find_closest_veg(self, x, y, perceived_tiles):
         target_veg = None
         min_distance = float("inf")
 
         perceived_set = set(perceived_tiles)
 
-        for v in veg_list:
+        for v in self.veg_list:
             if v.alive and (v.v_x, v.v_y) in perceived_set:
                 dx = x - v.v_x
                 dy = y - v.v_y
@@ -176,21 +175,21 @@ class World:
         return closest_shore
 
 
-    def find_closest_mate(self, c, creature_list):
-        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
-
-        if not perceived_creatures:
-            print("no perceived creatures")
-            return None
+    def find_closest_mate(self, c):
+        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c)
 
         closest_creature = None
         min_distance = float('inf')
 
         for other in perceived_creatures:
-            if other == c:
-                continue  # don't target itself 
-            if other.species == self.species:
-                continue   # only target prey.
+            if other.species != c.species:
+                continue  # only same-species mates
+            if other.reproduction.current_mate is not None:
+                continue  # already paired up
+            if other.status != "wandering":
+                continue  # busy (hungry, thirsty, fleeing, hunting, ...)
+            if not c.reproductionmanager.check_if_mature(other):
+                continue
 
             dx = other.x - c.x
             dy = other.y - c.y
@@ -202,13 +201,8 @@ class World:
 
         return closest_creature
 
-
-
-
-
-
-    def find_closest_prey(self, c, creature_list):
-        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c, creature_list)
+    def find_closest_prey(self, c):
+        perceived_creatures = self.check_for_creatures_in_perspective_tiles(c)
 
         if not perceived_creatures:
             print("no perceived creatures")
@@ -233,13 +227,13 @@ class World:
 
         return closest_creature
     
-    def check_for_creatures_in_perspective_tiles(self, creature, creature_list):
+    def check_for_creatures_in_perspective_tiles(self, creature):
 
         visible_creatures = []
 
         # Ensure creature has perceived tiles
 
-        for other in creature_list:
+        for other in self.creature_list:
 
             # Skip self
             if other is creature:
@@ -275,9 +269,3 @@ class World:
                     best_tile = (nx, ny)
 
         return best_tile
-    
-  
-        
-
-
-    
