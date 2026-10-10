@@ -18,6 +18,14 @@ class Predator(Creature):
         self.genome.hunger_threshold = 50
         self.genome.thirst_threshold = 30
 
+    # Stalks while hunger is within this margin above the hunger threshold
+    STALK_MARGIN = 20
+
+    def is_near_hungry(self):
+        return (self.genome.hunger_threshold
+                <= self.vitals.hunger
+                < self.genome.hunger_threshold + self.STALK_MARGIN)
+
     # -------------------------
     # STATE OVERRIDE
     # -------------------------
@@ -35,6 +43,10 @@ class Predator(Creature):
             self.status = "mating"
             return
 
+        # Migrating: stays in this state until handle_migrate_state ends it
+        if self.status == "migrating":
+            return
+
         # Normal need-based logic
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
@@ -43,13 +55,18 @@ class Predator(Creature):
                 self.status = "hungry"
             else:
                 self.status = "wandering"
-                self.get_non_essential_state_decision()
+                if self.is_near_hungry():
+                    self.status = "stalking"
+                else:
+                    self.get_non_essential_state_decision()
+
+            self.check_migration()
 
     # -------------------------
     # EAT PREY (override — delegates to hunger_behavior)
     # -------------------------
 
-    def resolve_interaction(self, veg_list, creature_list):
+    def resolve_interaction(self):
         if self.status == "mating":
             self.reproduction_behavior.handle_mating(self)
             return
@@ -57,7 +74,7 @@ class Predator(Creature):
         if self.interaction_manager.is_on_target(self):
 
             if self.status in ["hungry", "hunting"]:
-                self.hunger_behavior.handle_hunger(self, creature_list)
+                self.hunger_behavior.handle_hunger(self)
 
             elif self.status == "thirsty":
                 self.thirst_behavior.handle_thirst(self)
@@ -70,17 +87,28 @@ class Predator(Creature):
         self.hunger_behavior.notify_prey(self)
 
     # -------------------------
+    # FOOD CHECK OVERRIDE (a predator's food is prey)
+    # -------------------------
+
+    def sees_food(self):
+        return self.world.find_closest_prey(self) is not None
+
+    # -------------------------
     # STATUS CHECKER OVERRIDE (delegates to behavior components)
     # -------------------------
 
-    def status_checker(self, veg, creature_list):
+    def status_checker(self):
 
         if self.status == "hungry":
-            self.hunger_behavior.handle_hungry_state(self, creature_list)
+            self.hunger_behavior.handle_hungry_state(self)
         elif self.status == "thirsty":
             self.thirst_behavior.handle_thirsty_state(self)
         elif self.status == "hunting":
             self.hunting_behavior.handle_hunting_state(self)
+        elif self.status == "stalking":
+            self.hunting_behavior.handle_stalking_state(self)
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
 

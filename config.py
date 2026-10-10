@@ -1,7 +1,7 @@
 # -----------------------------
 # Screen
 # -----------------------------
-WIDTH, HEIGHT = 900, 900
+WIDTH, HEIGHT = 700, 700
 TILE_SIZE = 8
 GRID_WIDTH = WIDTH // TILE_SIZE
 GRID_HEIGHT = HEIGHT // TILE_SIZE

@@ -27,7 +27,7 @@ class ReproductionManager:
     # ---------- finding / meeting a mate ----------
 
     def check_for_viable_mate(self, c):
-        c.reproduction.current_mate = c.world.find_closest_mate(c, c.world.creature_list)
+        c.reproduction.current_mate = c.world.find_closest_mate(c)
 
     @staticmethod
     def split_path(path):

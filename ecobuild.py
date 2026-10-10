@@ -46,16 +46,17 @@ def create_creatures_random(num_predators, num_prey):
 
     return predators, prey, creatures
 
-predators, prey, creatures = create_creatures_random(10, 25)
+predators, prey, creatures = create_creatures_random(10, 50)
 #creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10)]
 
 #creatures = [       Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10]
-
+world.creature_list = creatures
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
 
 vege = create_veg_random(25)
+world.veg_list = vege
 
 #veg spawning
 VEG_SPAWN_EVENT = pygame.USEREVENT + 1
@@ -75,9 +76,9 @@ while running:
     renderer.draw_world(world.grid_width,world.grid_height,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
     for c in creatures:
-        c.update(vege, creatures)
+        c.update()
     for c in creatures:   
-        c.status_checker(vege, creatures)    
+        c.status_checker()    
     for c in creatures:       
         c.movement_decider()
     for c in creatures:  
@@ -89,7 +90,7 @@ while running:
         renderer.draw_veg(v)
 
     renderer.flip()
-    dt_ms = clock.tick(120)
+    dt_ms = clock.tick(60)
     world.dt = dt_ms/1000
     world.sim_time += world.dt
 

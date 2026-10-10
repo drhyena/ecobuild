@@ -54,6 +54,10 @@ class Prey(Creature):
             self.status = "mating"
             return
 
+        # Migrating: stays in this state until handle_migrate_state ends it
+        if self.status == "migrating":
+            return
+
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
                 self.status = "thirsty"
@@ -65,20 +69,25 @@ class Prey(Creature):
                 self.status = "wandering"
                 self.get_non_essential_state_decision()
 
+            self.check_migration()
+
     # -------------------------------------------------
     # State Dispatcher (delegates to behavior components)
     # -------------------------------------------------
 
-    def status_checker(self, veg, creature_list):
+    def status_checker(self):
 
         if self.status == "hungry":
-            self.hunger_behavior.handle_hungry_state(self, veg, creature_list)
+            self.hunger_behavior.handle_hungry_state(self)
 
         elif self.status == "thirsty":
             self.thirst_behavior.handle_thirsty_state(self)
 
         elif self.status == "fleeing":
             self.movement.handle_flee_state(self)
+
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
 
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)

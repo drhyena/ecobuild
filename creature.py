@@ -1,5 +1,5 @@
 import pygame
-from CreatureData import Vitals, Genome, Targeting, Reproduction
+from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration
 from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
 from reproductionmanager import ReproductionManager
 
@@ -9,7 +9,7 @@ class Creature:
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None):
+                 reproduction_behavior=None, migration=None):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -28,6 +28,9 @@ class Creature:
         self.hunting_behavior = hunting_behavior
         self.reproductionmanager = reproductionmanager if reproductionmanager is not None else ReproductionManager()
         self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
+        self.migration = migration if migration is not None else Migration()
+        self.migration.last_resource_time = self.world.sim_time
+        self.migration.last_redirect_time = self.world.sim_time
 
         self.targeting.target = None
         self.targeting.target_veg = None
@@ -64,12 +67,12 @@ class Creature:
     # MAIN UPDATE LOOP
     # -------------------------
 
-    def update(self, veg_list, creature_list):
+    def update(self):
         self.update_perceived_tiles()
         self.update_needs()
         self.update_state()
-        self.resolve_interaction(veg_list, creature_list)
-        self.check_death(creature_list)
+        self.resolve_interaction()
+        self.check_death()
         print(f"current px:{self.px},py:{self.py}")
         if not self.alive:
             print(self, "died while", self.status)
@@ -110,33 +113,69 @@ class Creature:
         if mate is not None and not mate.alive:
             self.reproductionmanager.cancel_mating(self)
 
+    # -------------------------
+    # MIGRATION (state helpers)
+    # -------------------------
+
+    def is_needy(self):
+        return (self.vitals.thirst < self.genome.thirst_threshold
+                or self.vitals.hunger < self.genome.hunger_threshold)
+
+    def sees_food(self):
+        return self.world.find_closest_veg(
+            self.x, self.y, self.targeting.perceived_tiles) is not None
+
+    def sees_needed_resource(self):
+        """True if whatever this creature is short of is within its perception."""
+        if self.vitals.thirst < self.genome.thirst_threshold:
+            if self.world.find_closest_shore(
+                    self.x, self.y, self.targeting.perceived_tiles) is not None:
+                return True
+        if self.vitals.hunger < self.genome.hunger_threshold:
+            return self.sees_food()
+        return False
+
+    def check_migration(self):
+        """Hold the 'no food/water found' clock at zero while needs are met.
+        Once hungry/thirsty for too long without a target, start migrating."""
+        now = self.world.sim_time
+        if self.status not in ("hungry", "thirsty"):
+            self.migration.last_resource_time = now
+        elif now - self.migration.last_resource_time >= self.movement.MIGRATE_AFTER:
+            self.status = "migrating"
+
     def update_state(self):
         self.validate_mate()
+        was_migrating = self.status == "migrating"
         self.status = self.get_essential_state_decision()
         self.vitals.age = self.world.sim_time - self.birth_time
         if self.reproduction.current_mate is not None:
             self.status = "mating"
-        elif self.status == "wandering":
-            self.get_non_essential_state_decision()
+        elif was_migrating and self.is_needy():
+            self.status = "migrating"  # stays until handle_migrate_state ends it
+        else:
+            self.check_migration()
+            if self.status == "wandering":
+                self.get_non_essential_state_decision()
         print(self.status)
 
-    def check_death(self, creature_list):
+    def check_death(self):
         if self.vitals.hunger <= 0 or self.vitals.thirst <= 0:
             print(f"{self} died at hunger:{self.vitals.hunger}")
-            self.interaction_manager.kill_creature(self, creature_list)
+            self.interaction_manager.kill_creature(self)
 
     # -------------------------
     # INTERACTION RESOLUTION (delegates to hunger/thirst behavior components)
     # -------------------------
 
-    def resolve_interaction(self, veg_list, creature_list):
+    def resolve_interaction(self):
         if self.status == "mating":
             self.reproduction_behavior.handle_mating(self)
             return
 
         if self.interaction_manager.is_on_target(self):
             if self.status == "hungry":
-                self.hunger_behavior.handle_hunger(self, veg_list, creature_list)
+                self.hunger_behavior.handle_hunger(self)
             elif self.status == "thirsty":
                 self.thirst_behavior.handle_thirst(self)
 
@@ -172,11 +211,13 @@ class Creature:
     # TARGET DECISION (delegates to hunger/thirst behavior components)
     # -------------------------
 
-    def status_checker(self, veg, creature_list):
+    def status_checker(self):
         if self.status == "hungry":
-            self.hunger_behavior.handle_hungry_state(self, veg, creature_list)
+            self.hunger_behavior.handle_hungry_state(self)
         elif self.status == "thirsty":
             self.thirst_behavior.handle_thirsty_state(self)
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
         else:
