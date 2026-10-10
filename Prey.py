@@ -24,6 +24,7 @@ class Prey(Creature):
     # -------------------------------------------------
 
     def update_state(self):
+        self.validate_mate()
 
         predator = self.targeting.targeted_by
 
@@ -37,6 +38,7 @@ class Prey(Creature):
         # Fleeing preempts everything, even a target already being walked to
         if predator is not None:
             if self.status != "fleeing":
+                self.reproductionmanager.cancel_mating(self)  # drop any mating plan
                 self.status = "fleeing"
                 self.targeting.target = None
                 self.targeting.target_veg = None
@@ -47,6 +49,11 @@ class Prey(Creature):
             self.status = "wandering"
             self.targeting.target = None
 
+        # Has a partner: walking to / waiting at the mating point
+        if self.reproduction.current_mate is not None:
+            self.status = "mating"
+            return
+
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
                 self.status = "thirsty"
@@ -56,6 +63,7 @@ class Prey(Creature):
 
             else:
                 self.status = "wandering"
+                self.get_non_essential_state_decision()
 
     # -------------------------------------------------
     # State Dispatcher (delegates to behavior components)
@@ -71,6 +79,9 @@ class Prey(Creature):
 
         elif self.status == "fleeing":
             self.movement.handle_flee_state(self)
+
+        elif self.status == "mating":
+            self.reproduction_behavior.handle_mating_state(self)
 
         else:
             self.targeting.target = None
