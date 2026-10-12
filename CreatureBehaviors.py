@@ -117,15 +117,6 @@ class Movement:
         if not c.targeting.target:  # don't override if already heading somewhere
             c.targeting.target = target
             c.targeting.path = []
-
-    
-    #def wander_to_a_new_region(self,c)
-
-   
-   # def wander_state_machine(self,c):
-    #    if c.vitals.age %10 == 0:
-     #       self.wander_far(_
-    
     
     def wander_randomly(self, c):
         self._set_mode(c, "wander")
@@ -303,6 +294,8 @@ class PreyMovement(Movement):
             self.mating_movement(c)
         elif c.status == "migrating":
             self.migrate(c)
+        elif c.status == "evading":
+            self.move_away_from_any_nearby_predators(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "fleeing":
@@ -313,6 +306,35 @@ class PreyMovement(Movement):
                 return
             if c.targeting.path:
                 self.follow_path(c)
+
+    def move_away_from_any_nearby_predators(self, c):
+        """Step to the neighbouring tile that puts the most distance between
+        this prey and its closest predator (ties: furthest from all of them).
+        Used while status is "evading", which the prey enters only when a
+        predator is in its perceived tiles and it passes the IQ check
+        (Prey.notices_predators)."""
+        predators = c.nearby_predators()
+
+        self._set_mode(c, "step")
+        if c.targeting.pixel_target is not None:
+            self.move_to_tile(c, None)  # finish the step in flight
+            return
+        if not predators:
+            return
+
+        def d2(tile, p):
+            return (tile[0] - p.x) ** 2 + (tile[1] - p.y) ** 2
+
+        def safety(tile):
+            return (min(d2(tile, p) for p in predators), sum(d2(tile, p) for p in predators))
+
+        options = [(c.x + dx, c.y + dy) for dx, dy in self.COMPASS
+                   if self._can_step(c, (dx, dy))]
+        if not options:
+            return
+        best = max(options, key=safety)
+        if safety(best)[0] > safety((c.x, c.y))[0]:  # only step if it really gains distance
+            self.move_to_tile(c, best)
 
     def flee_movement(self, c):
         if not c.targeting.target:
@@ -412,10 +434,11 @@ class PredatorMovement(Movement):
                         # (perception reaches 10 tiles, so this leaves a margin)
 
     def stalking(self, c):
-        """Shadow the stalked prey without alerting it: hold still while it is
-        inside the STALK_MIN_DIST..STALK_MAX_DIST band, close in when it drifts
-        away, back off if it gets too close. Never sets target_creature and
-        never calls notify_prey, so the prey does not flee."""
+        """Shadow the stalked prey without alerting it, never standing still.
+        Inside the STALK_MIN_DIST..STALK_MAX_DIST band it prowls: every step
+        stays in the band, favouring its current heading with some randomness.
+        Outside the band it heads back in. Never sets target_creature and never
+        calls notify_prey, so the prey is not alerted."""
         prey = c.targeting.stalk_target
         if prey is None:
             self.wander_randomly(c)  # nothing in sight: look around
@@ -426,24 +449,35 @@ class PredatorMovement(Movement):
             self.move_to_tile(c, None)  # finish the step in flight
             return
 
-        dist = max(abs(prey.x - c.x), abs(prey.y - c.y))
-        if self.STALK_MIN_DIST <= dist <= self.STALK_MAX_DIST:
-            return  # comfortable distance: hold position
-
-        ideal = (self.STALK_MIN_DIST + self.STALK_MAX_DIST) // 2
-
-        def gap(tile):
-            return abs(max(abs(prey.x - tile[0]), abs(prey.y - tile[1])) - ideal)
-
-        options = [(c.x + dx, c.y + dy) for dx, dy in self.COMPASS
-                   if self._can_step(c, (dx, dy))]
-        if not options:
+        steps = [d for d in self.COMPASS if self._can_step(c, d)]
+        if not steps:
             return
-        best = min(options, key=lambda t: (gap(t), (t[0] - prey.x) ** 2 + (t[1] - prey.y) ** 2))
-        if gap(best) < gap((c.x, c.y)):
-            self.move_to_tile(c, best)
 
-    POUNCE_RANGE = 6  # pixels
+        def dist_after(d):
+            return max(abs(prey.x - (c.x + d[0])), abs(prey.y - (c.y + d[1])))
+
+        dist = max(abs(prey.x - c.x), abs(prey.y - c.y))
+        ideal = (self.STALK_MIN_DIST + self.STALK_MAX_DIST) / 2
+        in_band = [d for d in steps
+                   if self.STALK_MIN_DIST <= dist_after(d) <= self.STALK_MAX_DIST]
+
+        if self.STALK_MIN_DIST <= dist <= self.STALK_MAX_DIST and in_band:
+            heading = c.targeting.stalk_heading
+    
+            def weight(d):
+                if heading is None:
+                    return 1
+                turn = (self.COMPASS.index(d) - self.COMPASS.index(heading)) % 8
+                return (4, 2, 1, 0.5, 0.1, 0.5, 1, 2)[turn]  # keep going > turn > reverse
+            step = random.choices(in_band, weights=[weight(d) for d in in_band])[0]
+        else:
+            # Out of the band (or boxed in): the step that lands nearest the ideal distance
+            step = min(steps, key=lambda d: abs(dist_after(d) - ideal))
+
+        c.targeting.stalk_heading = step
+        self.move_to_tile(c, (c.x + step[0], c.y + step[1]))
+
+    POUNCE_RANGE = 4  # pixels
 
     def hunting_movement(self, c):
         if self.pounce(c):
