@@ -65,7 +65,7 @@ class World:
         self.set_maptypes()
         
         self.dt = 0
-        self.sim_time = 0
+        self.sim_time = 0.0
 
         # Owned by the world. The main loop assigns its own lists here, so these
         # must be the same list objects it appends to (never copies).
