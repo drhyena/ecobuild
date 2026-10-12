@@ -32,20 +32,12 @@ class Creature:
         self.migration.last_resource_time = self.world.sim_time
         self.migration.last_redirect_time = self.world.sim_time
 
-        self.targeting.target = None
-        self.targeting.target_veg = None
-        self.targeting.pixel_target = None
-        self.targeting.target_creature = None
-        self.targeting.targeted_by = None
-        self.targeting.path = []
-        self.genome.perceptive_radius = [
+        self.targeting.perceived_tiles = [
             (dx, dy)
             for dx in range(-10, 11)
             for dy in range(-10, 11)
             if not (dx == 0 and dy == 0)
         ]
-        self.targeting.perceived_tiles = []
-
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
         self.alive = True
@@ -200,9 +192,17 @@ class Creature:
 
     def update_perceived_tiles(self):
         self.targeting.perceived_tiles.clear()
+        radius = self.genome.perceptive_radius
+        range = [
+            (dx, dy)
+            for dx in range(-(radius),(radius+1))
+            for dy in range(-(radius), (radius+1))
+            if not (dx == 0 and dy == 0)
+        ]
+
         self.targeting.perceived_tiles = [
             (self.x + dx, self.y + dy)
-            for dx, dy in self.genome.perceptive_radius
+            for dx, dy in range
             if 0 <= self.x + dx < self.world.grid_width
             and 0 <= self.y + dy < self.world.grid_height
         ]
