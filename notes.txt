@@ -67,3 +67,35 @@ to manage reproducttion
 add creatures into a queue. 
 the queue will contain pairs of (c, c.mate). if at any point a successive c has already been registered as c.mate, it will skip. 
 a similar queue can be implememnted for the animation of mating. ( simply assign a common tile where both creatures can meet that is fired off of the firs creature.)
+
+
+
+GENETIMANAGER.
+
+how geneticmanager works.
+Geneticmanager is a class that ensures fair growth.
+It essentially acts as limiters to spice up evolution.
+witout it, the creatures will simply keep getting faster and faster and more fertile, longer perceptive_radius, and so on and so forth. 
+
+Geneticmanager will make it so that creatures that gain a positive mutation in one area will gain anegative mutation in the other. 
+Not more so as a "mutation", but a hardcorded nerf. 
+
+
+higher speed = - health, - hunger_limit and -max_hunger. 
++ health = -speed, +hunger_limit, +max_hunger
+and so on and so forth. 
+
+
+geneticmanager stores all corresponding nerfs and buffs as dictionary that gives the attributes that are nerfed when a specific attribute is buffed.
+ eg {"speed" : set(- health, - hunger_limit, -max_hunger)} etc. 
+
+ Since the defention of a buff and nerf varies - eg : lower reproductive_interval is a buff, there will be another dictionary
+ that stores boolean expressions that compares pre-mutated creature values with mutated ones to decide whether it is a buff or not.
+
+
+the steps of geneticmanager(each a seperate function):
+1. parents' genes are mixed and stored as a "pre-mutated".
+2. pre-mutated genes are transformed via mutations( 10% chance for a mutation that gives +/- (0-.5))
+3. mutated genes, if any, are checked for buffs and nerfs. 
+4. simultaenous to the buff or nerf check, corresponding antithesis genes are nerfed/buffed. 
+5. the creature is bestowed upon with the fully transformed genetics and officially "born"
