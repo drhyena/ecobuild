@@ -52,6 +52,7 @@ class Reproduction:
     ready_to_mate: bool = False
     time_since_last_mating: int = 0
     current_mate: object = None
+    children :set =  field(default_factory=set)
 
 
 @dataclass
