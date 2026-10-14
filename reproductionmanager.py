@@ -3,14 +3,13 @@ import random
 
 class ReproductionManager:
 
-    # ---------- readiness checks ----------
-
     def check_if_mature(self, c):
         return c.vitals.age > 10
 
     def check_if_well_fed(self, c):
         return c.vitals.hunger > 80 and c.vitals.thirst > 80
 
+    # mature, and enough time has passed since the last mating
     def check_if_ready_to_seek_mate(self, c):
         return bool(
             self.check_if_mature(c)
@@ -24,26 +23,25 @@ class ReproductionManager:
             and self.check_if_well_fed(c)
         )
 
-    # ---------- finding / meeting a mate ----------
-
     def check_for_viable_mate(self, c):
+        """Called by interaction manager to look for the closest mate."""
         c.reproduction.current_mate = c.world.find_closest_mate(c)
 
+    # splits a path into two halves that share the midpoint tile. both end on the midpoint
     @staticmethod
     def split_path(path):
-        """Split a path into two halves that share the midpoint tile.
-        Returns (path[:mid+1], path[mid:] reversed). Both end on the midpoint."""
         mid = len(path) // 2
         return path[:mid + 1], path[mid:][::-1]
 
     def set_midpoint(self, c, test_path1, test_path2):
+        """Called once a mate is found. Sends both creatures to meet at the midpoint."""
         mate = c.reproduction.current_mate
         mate.reproduction.current_mate = c
         midpoint = tuple(test_path1[-1])  # both halves end on the same tile
         halves = (test_path1, test_path2)
 
-        # Each creature walks the half that starts nearest to itself, so this
-        # works whichever end of the path astar puts the start tile on.
+        # each creature walks the half that starts nearest to itself, so this
+        # works whichever end of the path astar puts the start tile on
         def start_dist(creature, half):
             return (half[0][0] - creature.x) ** 2 + (half[0][1] - creature.y) ** 2
 
@@ -52,6 +50,8 @@ class ReproductionManager:
             creature.targeting.target = midpoint
             creature.targeting.mating_point = midpoint
             creature.targeting.path = list(path)
+
+        print(f"{c} and {mate} are meeting at {midpoint}")
 
     def check_if_creatures_are_at_mating_point(self, c):
         mate = c.reproduction.current_mate
@@ -76,9 +76,8 @@ class ReproductionManager:
             creature.targeting.target = None
             creature.targeting.path = []
 
-    # ---------- reproduction ----------
-
     def mate(self, c):
+        """Called when both creatures are at the mating point. Returns the children."""
         # imported here to avoid a circular import (creature -> this module)
         from Predator import Predator
         from Prey import Prey
@@ -91,24 +90,16 @@ class ReproductionManager:
         children = []
 
         for _ in range(c.genome.fertility):
-            child = cls(c.x, c.y, c.world, c.interaction_manager)
 
-            # Crossover + mutation on numeric genes
-            for name, value in vars(c.genome).items():
-                if isinstance(value, bool) or not isinstance(value, (int, float)):
-                    continue
-                gene = random.choice([value, getattr(partner.genome, name, value)])
-                if random.random() < 0.1:  # 10% mutation chance
-                    gene *= random.uniform(0.9, 1.1)
-                if isinstance(value, int):  # keep int genes as ints
-                    gene = max(1, round(gene))
-                setattr(child.genome, name, gene)
-
+            child = c.geneticmanager.reproduce(c,partner)
             c.world.creature_list.append(child)
-            children.append(child)
+            c.repdroduction.children.append(child)
+            partner.children.append(child)
 
-        # Reset both parents (also stops the partner's own mate() call
-        # from producing a second litter)
+        print(f"{c} and {partner} had {len(children)} children")
+
+        # reset both parents. cancel_mating also stops the partner's own
+        # mate() call from producing a second litter
         self.cancel_mating(c)
         for parent in (c, partner):
             parent.reproduction.time_since_last_mating = 0
