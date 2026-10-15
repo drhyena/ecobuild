@@ -1,5 +1,3 @@
-import random
-
 from creature import Creature
 from CreatureBehaviors import PreyMovement
 
@@ -14,53 +12,53 @@ class Prey(Creature):
         self.genome.hunger_threshold = 20
         self.genome.thirst_threshold = 30
 
-        # Furthest tile (in x or y) the prey perceives; same square as perceived_tiles
-        self.perception_range = max(
-            max(abs(dx), abs(dy)) for dx, dy in self.genome.perceptive_radius
-        )
-
-    # -------------------------------------------------
-    # Predator Noticing (any predator in view, not just one hunting this prey)
-    # -------------------------------------------------
-
-    NOTICE_INTERVAL = 1.0  # s between IQ checks while a predator is in view
-    IQ_CHECK_DC = 0.5      # iq + jitter must reach this to notice
-    IQ_JITTER = 0.25       # randomisation added to iq: +/- this much
-
-    def nearby_predators(self):
-        """Living predators inside this prey's perceived tiles."""
-        r = self.perception_range
-        return [
-            o for o in self.world.creature_list
-            if o.species == "predator" and o.alive
-            and max(abs(o.x - self.x), abs(o.y - self.y)) <= r
-        ]
-
-    def notices_predators(self):
-        """True if a predator is in view AND the prey passes an IQ check.
-        The check is iq + random jitter against a difficulty, rolled once per
-        NOTICE_INTERVAL while a predator is in view; the result stands until
-        the next roll. With the default numbers an iq of 0.4 notices ~30% of
-        rolls, 0.6 ~70%, 0.8 always."""
-        t = self.targeting
-        if not self.nearby_predators():
-            t.noticed_predator = False
-            t.last_notice_roll = None  # a new sighting rolls straight away
-            return False
-
-        now = self.world.sim_time
-        if t.last_notice_roll is None or now - t.last_notice_roll >= self.NOTICE_INTERVAL:
-            t.last_notice_roll = now
-            roll = self.genome.iq + random.uniform(-self.IQ_JITTER, self.IQ_JITTER)
-            t.noticed_predator = roll >= self.IQ_CHECK_DC
-        return t.noticed_predator
-
     # -------------------------------------------------
     # Predator Awareness
     # -------------------------------------------------
 
     def get_predator(self, predator):
         self.targeting.targeted_by = predator if predator else None
+
+    # -------------------------------------------------
+    # Herd Alarm (a predator nearby started hunting)
+    # -------------------------------------------------
+
+    def check_alarm(self):
+        """True while this prey is running from a predator that started hunting nearby.
+        Everyone disperses first, then the ones picked for it head for the retreat point."""
+        t = self.targeting
+        predator = t.alarm_source
+        if predator is None:
+            return False
+
+        # the alarm is over when the predator dies or the alarm runs out
+        if not predator.alive or self.world.sim_time >= t.alarm_until:
+            self.end_alarm()
+            return False
+
+        if t.retreat_point is not None and self.world.sim_time >= t.retreat_time:
+            if self.status != "retreating":
+                self.reproductionmanager.cancel_mating(self)  # drop any mating plan
+                self.status = "retreating"
+                t.target = t.retreat_point
+                t.target_veg = None
+                t.path = []
+        elif self.status != "dispersing":
+            self.reproductionmanager.cancel_mating(self)
+            self.status = "dispersing"
+            t.target = None
+            t.target_veg = None
+            t.path = []
+        return True
+
+    def end_alarm(self):
+        t = self.targeting
+        t.alarm_source = None
+        t.retreat_point = None
+        if self.status in ("dispersing", "retreating"):
+            self.status = "wandering"
+            t.target = None
+            t.path = []
 
     # -------------------------------------------------
     # State Logic
@@ -92,19 +90,9 @@ class Prey(Creature):
             self.status = "wandering"
             self.targeting.target = None
 
-        # Noticed a predator nearby: move away from it (drops any mating plan)
-        if self.notices_predators():
-            if self.status != "evading":
-                self.reproductionmanager.cancel_mating(self)
-                self.status = "evading"
-                self.targeting.target = None
-                self.targeting.target_veg = None
-                self.targeting.path = []
+        # A predator started hunting nearby: disperse, and some of us retreat to a point
+        if self.check_alarm():
             return
-
-        if self.status == "evading":
-            self.status = "wandering"
-            self.targeting.target = None
 
         # Has a partner: walking to / waiting at the mating point
         if self.reproduction.current_mate is not None:
@@ -142,6 +130,12 @@ class Prey(Creature):
 
         elif self.status == "fleeing":
             self.movement.handle_flee_state(self)
+
+        elif self.status == "dispersing":
+            self.movement.handle_disperse_state(self)
+
+        elif self.status == "retreating":
+            self.movement.handle_retreat_state(self)
 
         elif self.status == "migrating":
             self.movement.handle_migrate_state(self)
