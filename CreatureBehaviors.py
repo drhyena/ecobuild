@@ -152,11 +152,9 @@ class Movement:
             )
             if not c.targeting.path:
                 c.targeting.target = None
-                print(f"path not found for {c}")
 
 
     def follow_path(self, c):
-        print(f"{c} has entered follow path")
         self._set_mode(c, "path")
 
         if not c.targeting.pixel_target:
@@ -164,7 +162,6 @@ class Movement:
                 c.targeting.path[0][0] * c.world.tile_size + c.world.tile_size // 2,
                 c.targeting.path[0][1] * c.world.tile_size + c.world.tile_size // 2,
             )
-            print(f"{c} has found pixel_target at {c.targeting.pixel_target} ")
 
         if c.targeting.pixel_target:
             t = self.lerp_prep(c, c.targeting.pixel_target)
@@ -269,15 +266,12 @@ class ThirstBehavior:
 
     def drink_water(self, c):
         if c.status == "thirsty":
-            print("drinking")
             c.vitals.thirst = 100
             c.times_drank += 1
             c.migration.last_resource_time = c.world.sim_time
 
     def handle_thirsty_state(self, c):
         if c.targeting.target:
-            print(f"{c}has thirst target")
-            print(c.targeting.target)
             return
         c.update_perceived_tiles()
         c.targeting.target = c.world.find_closest_shore(
@@ -285,7 +279,6 @@ class ThirstBehavior:
         )
         if c.targeting.target is not None:
             c.migration.last_resource_time = c.world.sim_time
-        print(f"{c}entered handle thirsty")
 
 
 class PreyMovement(Movement):
@@ -294,8 +287,10 @@ class PreyMovement(Movement):
             self.mating_movement(c)
         elif c.status == "migrating":
             self.migrate(c)
-        elif c.status == "evading":
-            self.move_away_from_any_nearby_predators(c)
+        elif c.status == "dispersing":
+            self.flee_movement(c)
+        elif c.status == "retreating":
+            self.retreat_movement(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "fleeing":
@@ -306,35 +301,6 @@ class PreyMovement(Movement):
                 return
             if c.targeting.path:
                 self.follow_path(c)
-
-    def move_away_from_any_nearby_predators(self, c):
-        """Step to the neighbouring tile that puts the most distance between
-        this prey and its closest predator (ties: furthest from all of them).
-        Used while status is "evading", which the prey enters only when a
-        predator is in its perceived tiles and it passes the IQ check
-        (Prey.notices_predators)."""
-        predators = c.nearby_predators()
-
-        self._set_mode(c, "step")
-        if c.targeting.pixel_target is not None:
-            self.move_to_tile(c, None)  # finish the step in flight
-            return
-        if not predators:
-            return
-
-        def d2(tile, p):
-            return (tile[0] - p.x) ** 2 + (tile[1] - p.y) ** 2
-
-        def safety(tile):
-            return (min(d2(tile, p) for p in predators), sum(d2(tile, p) for p in predators))
-
-        options = [(c.x + dx, c.y + dy) for dx, dy in self.COMPASS
-                   if self._can_step(c, (dx, dy))]
-        if not options:
-            return
-        best = max(options, key=safety)
-        if safety(best)[0] > safety((c.x, c.y))[0]:  # only step if it really gains distance
-            self.move_to_tile(c, best)
 
     def flee_movement(self, c):
         if not c.targeting.target:
@@ -369,6 +335,54 @@ class PreyMovement(Movement):
             best = random.choice(pool) if pool else best
 
         c.targeting.target = best
+
+    # ---------------- herd alarm ----------------
+
+    DISPERSE_SCATTER = 0.5  # chance a dispersing prey takes any tile that isn't closer, not just the farthest
+
+    def handle_disperse_state(self, c):
+        """Step away from the predator that raised the alarm. Like handle_flee_state,
+        but sometimes takes a sideways step so the herd fans out instead of running in a line."""
+        predator = c.targeting.alarm_source
+        if not predator or not predator.alive:
+            c.targeting.target = None
+            return
+
+        world = c.world
+        here = (c.x, c.y)
+
+        def dist2(tile):
+            return (tile[0] - predator.x) ** 2 + (tile[1] - predator.y) ** 2
+
+        options = [t for t in world.get_neighbors(c.x, c.y) if world.is_walkable(*t)]
+        if not options:
+            c.targeting.target = here  # cornered: hold still
+            return
+
+        best = max(options + [here], key=dist2)
+        if random.random() < self.DISPERSE_SCATTER:
+            pool = [t for t in options if dist2(t) >= dist2(here)]
+            best = random.choice(pool) if pool else best
+
+        c.targeting.target = best
+
+    def handle_retreat_state(self, c):
+        """Called from status_checker while retreating. Holds still once it reaches the point."""
+        t = c.targeting
+        if t.target is not None and (c.x, c.y) == t.target:
+            t.target = None
+            t.path = []
+
+    def retreat_movement(self, c):
+        t = c.targeting
+        if t.target is None or (c.x, c.y) == t.target:
+            return  # at the retreat point (or nothing to head for): hold still
+        if not t.path:
+            self.set_path(c)
+            if t.target is None:  # no route to the point: give up, check_alarm goes back to dispersing
+                t.retreat_point = None
+            return
+        self.follow_path(c)
 
 
 class PreyHungerBehavior:
@@ -414,8 +428,6 @@ class PredatorMovement(Movement):
             self.mating_movement(c)
         elif c.status == "migrating":
             self.migrate(c)
-        elif c.status == "stalking":
-            self.stalking(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "hunting":
@@ -426,56 +438,6 @@ class PredatorMovement(Movement):
                 return
             if c.targeting.path:
                 self.follow_path(c)
-
-    # ---------------- stalking ----------------
-
-    STALK_MIN_DIST = 4  # tiles: closer than this and the predator backs off
-    STALK_MAX_DIST = 7  # tiles: farther than this and it closes in
-                        # (perception reaches 10 tiles, so this leaves a margin)
-
-    def stalking(self, c):
-        """Shadow the stalked prey without alerting it, never standing still.
-        Inside the STALK_MIN_DIST..STALK_MAX_DIST band it prowls: every step
-        stays in the band, favouring its current heading with some randomness.
-        Outside the band it heads back in. Never sets target_creature and never
-        calls notify_prey, so the prey is not alerted."""
-        prey = c.targeting.stalk_target
-        if prey is None:
-            self.wander_randomly(c)  # nothing in sight: look around
-            return
-
-        self._set_mode(c, "step")
-        if c.targeting.pixel_target is not None:
-            self.move_to_tile(c, None)  # finish the step in flight
-            return
-
-        steps = [d for d in self.COMPASS if self._can_step(c, d)]
-        if not steps:
-            return
-
-        def dist_after(d):
-            return max(abs(prey.x - (c.x + d[0])), abs(prey.y - (c.y + d[1])))
-
-        dist = max(abs(prey.x - c.x), abs(prey.y - c.y))
-        ideal = (self.STALK_MIN_DIST + self.STALK_MAX_DIST) / 2
-        in_band = [d for d in steps
-                   if self.STALK_MIN_DIST <= dist_after(d) <= self.STALK_MAX_DIST]
-
-        if self.STALK_MIN_DIST <= dist <= self.STALK_MAX_DIST and in_band:
-            heading = c.targeting.stalk_heading
-    
-            def weight(d):
-                if heading is None:
-                    return 1
-                turn = (self.COMPASS.index(d) - self.COMPASS.index(heading)) % 8
-                return (4, 2, 1, 0.5, 0.1, 0.5, 1, 2)[turn]  # keep going > turn > reverse
-            step = random.choices(in_band, weights=[weight(d) for d in in_band])[0]
-        else:
-            # Out of the band (or boxed in): the step that lands nearest the ideal distance
-            step = min(steps, key=lambda d: abs(dist_after(d) - ideal))
-
-        c.targeting.stalk_heading = step
-        self.move_to_tile(c, (c.x + step[0], c.y + step[1]))
 
     POUNCE_RANGE = 4  # pixels
 
@@ -548,7 +510,6 @@ class PredatorHungerBehavior:
 
         if c.targeting.target_creature is None:
             c.targeting.target = None
-            print("predator's prey none")
             return
 
         test_path = astar(
@@ -570,17 +531,72 @@ class PredatorHungerBehavior:
 
 
 class PredatorHuntingBehaviour:
-    def handle_stalking_state(self, c):
-        """Keep one prey in perception to shadow. Deliberately does not set
-        target_creature or notify the prey."""
-        prey = c.targeting.stalk_target
-        if prey is not None and (
-            not prey.alive or (prey.x, prey.y) not in c.targeting.perceived_tiles
-        ):
-            prey = None  # died or slipped out of perception
-        if prey is None:
-            prey = c.world.find_closest_prey(c)
-        c.targeting.stalk_target = prey
+
+    # ---------------- herd alarm ----------------
+
+    ALARM_RADIUS = 10       # tiles (square, like perception): prey this close to the hunter get alarmed
+    ALARM_DURATION = 6      # s the alarm lasts. every new hunt by the same predator renews it
+    RETREAT_CHANCE = 0.4    # fraction of alarmed prey that go on to flee to the retreat point
+    RETREAT_DELAY = 1.5     # s spent dispersing before those prey head for the point
+    RETREAT_DISTANCE = 15   # tiles from the predator to the retreat point
+
+    def alarm_nearby_prey(self, c):
+        """Called when a predator starts hunting. Every prey close by starts dispersing from it,
+        and a random few of them then head for one shared retreat point."""
+        now = c.world.sim_time
+        target = c.targeting.target_creature  # the hunted prey already flees on its own
+        herd = [
+            o for o in c.world.creature_list
+            if o.species == "prey" and o.alive and o is not target
+            and max(abs(o.x - c.x), abs(o.y - c.y)) <= self.ALARM_RADIUS
+        ]
+
+        for prey in herd:
+            prey.targeting.alarm_until = now + self.ALARM_DURATION  # also renews prey that are already running
+
+        fresh = [o for o in herd if o.targeting.alarm_source is not c]
+        if not fresh:
+            return
+
+        point = self.find_retreat_point(c, fresh)
+        for prey in fresh:
+            t = prey.targeting
+            t.alarm_source = c
+            t.retreat_point = point if random.random() < self.RETREAT_CHANCE else None
+            t.retreat_time = now + self.RETREAT_DELAY
+
+
+    def find_retreat_point(self, c, herd):
+        """A walkable tile RETREAT_DISTANCE from the predator, on the far side of the herd.
+        Returns None if there isn't one."""
+        world = c.world
+
+        # direction from the predator through the middle of the herd
+        dx = sum(o.x for o in herd) / len(herd) - c.x
+        dy = sum(o.y for o in herd) / len(herd) - c.y
+        length = (dx ** 2 + dy ** 2) ** 0.5
+        if length == 0:  # herd is right on top of the predator, any direction will do
+            dx, dy = random.choice(((1, 0), (-1, 0), (0, 1), (0, -1)))
+        else:
+            dx, dy = dx / length, dy / length
+
+        x = max(0, min(world.grid_width - 1, round(c.x + dx * self.RETREAT_DISTANCE)))
+        y = max(0, min(world.grid_height - 1, round(c.y + dy * self.RETREAT_DISTANCE)))
+
+        # the exact spot may be water: take the closest walkable tile around it
+        for radius in range(6):
+            ring = [
+                (x + ox, y + oy)
+                for ox in range(-radius, radius + 1)
+                for oy in range(-radius, radius + 1)
+                if max(abs(ox), abs(oy)) == radius
+                and 0 <= x + ox < world.grid_width
+                and 0 <= y + oy < world.grid_height
+                and world.is_walkable(x + ox, y + oy)
+            ]
+            if ring:
+                return random.choice(ring)
+        return None
 
     def handle_hunting_state(self, c):
         now = c.world.sim_time

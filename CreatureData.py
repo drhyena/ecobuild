@@ -19,7 +19,7 @@ class Genome:
     max_hunger: float = 100
     max_thirst: float = 100
     fertility: int = 1  # no. of offspring per mating
-    reproductive_interval: float = 10  # time before a creature is ready to mate again
+    reproductive_interval: float = 5  # time before a creature is ready to mate again
     type: str = "creature"
 
 @dataclass
@@ -40,10 +40,10 @@ class Targeting:
     targeted_by: object = None
     pixel_target: tuple = None
     mating_point: tuple = None
-    stalk_target: object = None  # prey being shadowed (never alerted)
-    stalk_heading: tuple = None  # last prowling step, so the predator keeps a direction
-    noticed_predator: bool = False  # result of the prey's latest IQ check
-    last_notice_roll: float = None  # sim_time of that check (None = no predator in view)
+    alarm_source: object = None  # predator that started hunting nearby (None = no alarm)
+    alarm_until: float = 0  # sim_time the alarm runs out
+    retreat_point: tuple = None  # shared point some prey flee to (None = just disperse)
+    retreat_time: float = 0  # sim_time those prey stop dispersing and head for the point
 
 
 @dataclass
@@ -60,4 +60,3 @@ class Migration:
     direction: tuple = None          # current compass heading (dx, dy)
     last_redirect_time: float = 0    # sim_time of the last heading change
     last_resource_time: float = 0    # sim_time food/water was last found, eaten or drunk
-
