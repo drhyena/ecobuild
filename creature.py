@@ -2,6 +2,7 @@ import pygame
 from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration
 from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
 from reproductionmanager import ReproductionManager
+from geneticmanager import GeneticManager
 
 
 class Creature:
@@ -9,7 +10,7 @@ class Creature:
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None, migration=None):
+                 reproduction_behavior=None, migration=None,geneticmanager = None):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -28,16 +29,12 @@ class Creature:
         self.hunting_behavior = hunting_behavior
         self.reproductionmanager = reproductionmanager if reproductionmanager is not None else ReproductionManager()
         self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
+        self.geneticmanager = self.geneticmanager if geneticmanager is not None else GeneticManager()
         self.migration = migration if migration is not None else Migration()
         self.migration.last_resource_time = self.world.sim_time
         self.migration.last_redirect_time = self.world.sim_time
 
-        self.targeting.perceived_tiles = [
-            (dx, dy)
-            for dx in range(-10, 11)
-            for dy in range(-10, 11)
-            if not (dx == 0 and dy == 0)
-        ]
+
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
         self.alive = True
@@ -65,9 +62,6 @@ class Creature:
         self.update_state()
         self.resolve_interaction()
         self.check_death()
-        print(f"current px:{self.px},py:{self.py}")
-        if not self.alive:
-            print(self, "died while", self.status)
 
     # -------------------------
     # VITALS / NEEDS
@@ -149,11 +143,9 @@ class Creature:
             self.check_migration()
             if self.status == "wandering":
                 self.get_non_essential_state_decision()
-        print(self.status)
 
     def check_death(self):
         if self.vitals.hunger <= 0 or self.vitals.thirst <= 0:
-            print(f"{self} died at hunger:{self.vitals.hunger}")
             self.interaction_manager.kill_creature(self)
 
     # -------------------------
@@ -193,7 +185,7 @@ class Creature:
     def update_perceived_tiles(self):
         self.targeting.perceived_tiles.clear()
         radius = self.genome.perceptive_radius
-        range = [
+        r = [
             (dx, dy)
             for dx in range(-(radius),(radius+1))
             for dy in range(-(radius), (radius+1))
@@ -202,7 +194,7 @@ class Creature:
 
         self.targeting.perceived_tiles = [
             (self.x + dx, self.y + dy)
-            for dx, dy in range
+            for dx, dy in r
             if 0 <= self.x + dx < self.world.grid_width
             and 0 <= self.y + dy < self.world.grid_height
         ]
