@@ -2,12 +2,15 @@ import random
 
 
 class ReproductionManager:
+    def __init__(self):
+        self.matecounter = 0
+
 
     def check_if_mature(self, c):
         return c.vitals.age > 10
 
     def check_if_well_fed(self, c):
-        return c.vitals.hunger > 80 and c.vitals.thirst > 80
+        return c.vitals.hunger > 50 and c.vitals.thirst > 50
 
     # mature, and enough time has passed since the last mating
     def check_if_ready_to_seek_mate(self, c):
@@ -51,7 +54,6 @@ class ReproductionManager:
             creature.targeting.mating_point = midpoint
             creature.targeting.path = list(path)
 
-        print(f"{c} and {mate} are meeting at {midpoint}")
 
     def check_if_creatures_are_at_mating_point(self, c):
         mate = c.reproduction.current_mate
@@ -64,6 +66,7 @@ class ReproductionManager:
         )
 
     def cancel_mating(self, c):
+     
         """Drop the mating plan for c and its partner (if any)."""
         partner = c.reproduction.current_mate
         for creature in (c, partner):
@@ -77,6 +80,8 @@ class ReproductionManager:
             creature.targeting.path = []
 
     def mate(self, c):
+        self.matecounter+=1
+        print(f"no: of mating: {self.matecounter}")
         """Called when both creatures are at the mating point. Returns the children."""
         # imported here to avoid a circular import (creature -> this module)
         from Predator import Predator
@@ -86,17 +91,16 @@ class ReproductionManager:
         if partner is None:
             return []
 
-        cls = Predator if c.species == "predator" else Prey
         children = []
 
         for _ in range(c.genome.fertility):
+            child = c.geneticmanager.reproduce(c)
+            c.reproduction.children.add(child)
+            partner.reproduction.children.add(child)
 
-            child = c.geneticmanager.reproduce(c,partner)
             c.world.creature_list.append(child)
-            c.repdroduction.children.append(child)
-            partner.children.append(child)
+            children.append(child)
 
-        print(f"{c} and {partner} had {len(children)} children")
 
         # reset both parents. cancel_mating also stops the partner's own
         # mate() call from producing a second litter
