@@ -18,14 +18,6 @@ class Predator(Creature):
         self.genome.hunger_threshold = 50
         self.genome.thirst_threshold = 30
 
-    # Stalks while hunger is within this margin above the hunger threshold
-    STALK_MARGIN = 20
-
-    def is_near_hungry(self):
-        return (self.genome.hunger_threshold
-                <= self.vitals.hunger
-                < self.genome.hunger_threshold + self.STALK_MARGIN)
-
     # -------------------------
     # STATE OVERRIDE
     # -------------------------
@@ -35,6 +27,8 @@ class Predator(Creature):
 
         # If actively hunting
         if self.targeting.target_creature:
+            if self.status != "hunting":
+                self.hunting_behavior.alarm_nearby_prey(self)  # nearby prey react the moment the hunt starts
             self.status = "hunting"
             return
 
@@ -55,10 +49,7 @@ class Predator(Creature):
                 self.status = "hungry"
             else:
                 self.status = "wandering"
-                if self.is_near_hungry():
-                    self.status = "stalking"
-                else:
-                    self.get_non_essential_state_decision()
+                self.get_non_essential_state_decision()
 
             self.check_migration()
 
@@ -105,8 +96,6 @@ class Predator(Creature):
             self.thirst_behavior.handle_thirsty_state(self)
         elif self.status == "hunting":
             self.hunting_behavior.handle_hunting_state(self)
-        elif self.status == "stalking":
-            self.hunting_behavior.handle_stalking_state(self)
         elif self.status == "migrating":
             self.movement.handle_migrate_state(self)
         elif self.status == "mating":
