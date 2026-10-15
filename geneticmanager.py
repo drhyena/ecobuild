@@ -2,13 +2,14 @@ import random
 
 
 class GeneticManager:
-    # oversees how genes get passed on. acts as a balancer of sorts. without balance, creatures simply get stronger, faster, longer ranged etc
-    def __init__(self):
-        self.mutation_chance = 0.10
-        self.mutation_range = 0.5
-        self.compensate_nerfs = False  # if true, a nerf gives back the reverse tradeoff
+    # Oversees how genes get passed on. Acts as a balancer of sorts: without balance, creatures simply get stronger, faster, longer ranged etc
 
-        # when the key gene is buffed, linked genes move in this direction (+1 goes up, -1 goes down)
+    def __init__(self):
+        self.mutation_chance = 0.5
+        self.mutation_range = 0.5
+        self.compensate_nerfs = False  # if True, a nerf gives back the reverse tradeoff
+
+        # When the key gene is buffed, linked genes move in this direction (+1 goes up, -1 goes down)
         self.tradeoffs = {
             "speed": {"health": -1, "hunger_limit": -1, "max_hunger": -1},
             "health": {"speed": -1, "hunger_limit": +1, "max_hunger": +1},
@@ -18,7 +19,7 @@ class GeneticManager:
             "max_hunger": {"speed": -1},
         }
 
-        # decides if a change in a gene is a buff. lower reproductive_interval is a buff
+        # Decides if a change in a gene is a buff. Lower reproductive_interval is a buff
         self.is_buff = {
             "speed": lambda pre, new: new > pre,
             "health": lambda pre, new: new > pre,
@@ -28,7 +29,7 @@ class GeneticManager:
             "max_hunger": lambda pre, new: new > pre,
         }
 
-        # floors so mutations and penalties can't push a gene to zero or below
+        # Floors so mutations and penalties can't push a gene to zero or below
         self.min_values = {
             "speed": 0.1,
             "health": 1.0,
@@ -38,8 +39,12 @@ class GeneticManager:
             "max_hunger": 1.0,
         }
 
-    def reproduce(self, c, mate=None):
-        """Called by creature to make a child. Pass a mate for two parents."""
+    # ---------- entry point ----------
+
+    def reproduce(self, c):
+        """Run all five steps and return the newborn child.
+        Pass a mate for two parents, or leave it out for one."""
+        mate = c.reproduction.current_mate
         parents = [c] if mate is None else [c, mate]
         pre = self.mix_genes(parents)
         mutated = self.mutate_genes(pre)
@@ -47,25 +52,30 @@ class GeneticManager:
         final = self.apply_tradeoffs(mutated, buffs, nerfs)
         return self.birth(c, final)
 
-    # step 1. each gene comes from a random parent
+    # ---------- the five steps ----------
+
     def mix_genes(self, parents):
+        """Step 1. Each numeric gene comes from a random parent. Returns the pre-mutated genes.
+        Genes are read off the genome object with vars(), as it is a dataclass."""
         pre = {}
-        for gene in parents[0].genome:
-            pre[gene] = random.choice(parents).genome[gene]
+        for name, value in vars(parents[0].genome).items():
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                continue
+            pre[name] = getattr(random.choice(parents).genome, name, value)
         return pre
 
-    # step 2. each gene has a chance to change by +/- (0 - mutation_range)
     def mutate_genes(self, pre):
+        """Step 2. Each gene has a chance to change by +/- (0 - mutation_range)."""
         mutated = dict(pre)
         for gene in pre:
             if random.random() < self.mutation_chance:
                 change = random.uniform(0, self.mutation_range) * random.choice((-1, 1))
                 mutated[gene] = self._clamp(gene, pre[gene] + change)
-                print(f"{gene} mutated by {change:+.2f}")
         return mutated
 
-    # step 3. sorts changed genes into buffs and nerfs, value is the size of the change
     def find_changes(self, pre, mutated):
+        """Step 3. Sorts changed genes into buffs and nerfs.
+        Returns (buffs, nerfs), each a dict of {gene: size of the change}."""
         buffs, nerfs = {}, {}
         for gene in mutated:
             if gene not in self.is_buff or mutated[gene] == pre[gene]:
@@ -77,29 +87,37 @@ class GeneticManager:
                 nerfs[gene] = size
         return buffs, nerfs
 
-    # step 4. applies the hardcoded nerfs. works on a copy so penalties never count as mutations
     def apply_tradeoffs(self, mutated, buffs, nerfs):
+        """Step 4. Applies the hardcoded nerfs, scaled to the size of each buff.
+        Works on a copy, so penalties never count as mutations themselves."""
         final = dict(mutated)
 
         for gene, size in buffs.items():
             for linked, direction in self.tradeoffs[gene].items():
+                if linked not in final:  # genome doesn't have this gene
+                    continue
                 final[linked] += direction * size
-                print(f"{gene} buffed -> {linked} {direction * size:+.2f}")
 
         if self.compensate_nerfs:
             for gene, size in nerfs.items():
                 for linked, direction in self.tradeoffs[gene].items():
-                    final[linked] -= direction * size
+                    if linked in final:
+                        final[linked] -= direction * size
 
         for gene in final:
             final[gene] = self._clamp(gene, final[gene])
         return final
 
-    # step 5. child is the same class as the parent
     def birth(self, c, genome):
+        """Step 5. The child is the same class as the parent, with the final genes."""
         child = type(c)(c.x, c.y, c.world, c.interaction_manager)
-        child.genome = genome
+        for name, value in genome.items():
+            if isinstance(getattr(c.genome, name), int):  # keep int genes as ints
+                value = max(1, round(value))
+            setattr(child.genome, name, value)
         return child
+
+    # ---------- helpers ----------
 
     def _clamp(self, gene, value):
         if gene in self.min_values:
