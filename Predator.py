@@ -1,8 +1,10 @@
 from creature import Creature
 from CreatureBehaviors import PredatorMovement, PredatorHungerBehavior, PredatorHuntingBehaviour
+from itertools import count
 
 
 class Predator(Creature):
+    id_counter = count()
 
     def __init__(self, x, y, world, interaction_manager):
         super().__init__(
@@ -17,6 +19,7 @@ class Predator(Creature):
         self.genome.speed = 40
         self.genome.hunger_threshold = 50
         self.genome.thirst_threshold = 30
+        self.genome.id = "predator" + self.id_counter
 
     # -------------------------
     # STATE OVERRIDE

@@ -11,18 +11,15 @@ class GeneticManager:
 
         # When the key gene is buffed, linked genes move in this direction (+1 goes up, -1 goes down)
         self.tradeoffs = {
-            "speed": {"health": -1, "hunger_limit": -1, "max_hunger": -1},
-            "health": {"speed": -1, "hunger_limit": +1, "max_hunger": +1},
+            "speed": { "hunger_limit": -1, "max_hunger": -1},
             "perceptive_radius": {"speed": -1, "max_hunger": -1},
-            "reproductive_interval": {"health": -1, "max_hunger": -1},
-            "hunger_limit": {"health": -1},
+            "reproductive_interval": { "max_hunger": -1},
             "max_hunger": {"speed": -1},
         }
 
         # Decides if a change in a gene is a buff. Lower reproductive_interval is a buff
         self.is_buff = {
             "speed": lambda pre, new: new > pre,
-            "health": lambda pre, new: new > pre,
             "perceptive_radius": lambda pre, new: new > pre,
             "reproductive_interval": lambda pre, new: new < pre,
             "hunger_limit": lambda pre, new: new > pre,
@@ -32,7 +29,6 @@ class GeneticManager:
         # Floors so mutations and penalties can't push a gene to zero or below
         self.min_values = {
             "speed": 0.1,
-            "health": 1.0,
             "perceptive_radius": 1.0,
             "reproductive_interval": 1.0,
             "hunger_limit": 0.1,
@@ -115,6 +111,7 @@ class GeneticManager:
             if isinstance(getattr(c.genome, name), int):  # keep int genes as ints
                 value = max(1, round(value))
             setattr(child.genome, name, value)
+        child.genome.generation = self.set_generation(c)
         return child
 
     # ---------- helpers ----------
@@ -123,3 +120,6 @@ class GeneticManager:
         if gene in self.min_values:
             return max(value, self.min_values[gene])
         return value
+
+    def set_generation(self,c):
+       return max(c.genome.generation,c.reproduction.current_mate.genome.generation)

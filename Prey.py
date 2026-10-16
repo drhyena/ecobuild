@@ -1,8 +1,11 @@
 from creature import Creature
 from CreatureBehaviors import PreyMovement
+from itertools import count
 
 
 class Prey(Creature):
+    id_counter = count()
+
 
     def __init__(self, x, y, world, interaction_manager):
         super().__init__(x, y, world, interaction_manager, movement=PreyMovement())
@@ -11,6 +14,7 @@ class Prey(Creature):
         self.genome.speed = 20
         self.genome.hunger_threshold = 20
         self.genome.thirst_threshold = 30
+        self.genome.id = "prey" + str(self.id_counter)
 
     # -------------------------------------------------
     # Predator Awareness

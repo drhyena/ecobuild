@@ -70,7 +70,7 @@ a similar queue can be implememnted for the animation of mating. ( simply assign
 
 
 
-GENETIMANAGER.
+GENETICMANAGER.
 
 how geneticmanager works.
 Geneticmanager is a class that ensures fair growth.
