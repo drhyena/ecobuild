@@ -1,8 +1,10 @@
 import pygame
-from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration
+from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration, Logging
 from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
 from reproductionmanager import ReproductionManager
 from geneticmanager import GeneticManager
+
+
 
 
 class Creature:
@@ -10,7 +12,7 @@ class Creature:
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None, migration=None,geneticmanager = None):
+                 reproduction_behavior=None, migration=None,geneticmanager = None, logging = None):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -31,6 +33,9 @@ class Creature:
         self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
         self.geneticmanager = self.geneticmanager if geneticmanager is not None else GeneticManager()
         self.migration = migration if migration is not None else Migration()
+
+        self.logging = logging if logging is not None else Logging()
+
         self.migration.last_resource_time = self.world.sim_time
         self.migration.last_redirect_time = self.world.sim_time
 
@@ -43,12 +48,11 @@ class Creature:
         self.prev_px, self.prev_py = self.px, self.py
 
         # log attributes. Additional data
-        self.times_drank = 0
-        self.creatures_killed = 0
-        self.times_ate = 0
-
-        # time attributes
+        self.logging.times_drank = 0
+        self.logging.creatures_killed = 0
+        self.logging.times_ate = 0
         self.birth_time = self.world.sim_time
+
         self.retarget_interval = 5
         self.last_retarget_time = self.world.sim_time
 
@@ -145,8 +149,17 @@ class Creature:
                 self.get_non_essential_state_decision()
 
     def check_death(self):
-        if self.vitals.hunger <= 0 or self.vitals.thirst <= 0:
+        
+        if self.vitals.hunger <= 0 :
+            self.logging.cause_of_death = "hunger"
             self.interaction_manager.kill_creature(self)
+           
+            
+        elif self.vitals.thirst <= 0:
+            self.logging.cause_of_death = "thirst"
+            self.interaction_manager.kill_creature(self)
+        
+            
 
     # -------------------------
     # INTERACTION RESOLUTION (delegates to hunger/thirst behavior components)

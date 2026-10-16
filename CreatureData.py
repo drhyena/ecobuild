@@ -6,10 +6,6 @@ from dataclasses import dataclass, field
 @dataclass
 class Genome:
     iq: float = None
-    max_health: float = 100
-    size : float = 5
-    energy : float = 100
-    energy_regen : float = 20
     perceptive_radius: int = 10
     hunger_threshold: float = 20
     thirst_threshold: float = 30
@@ -21,12 +17,13 @@ class Genome:
     fertility: int = 1  # no. of offspring per mating
     reproductive_interval: float = 5  # time before a creature is ready to mate again
     type: str = "creature"
+    generation : int = 0
+    id: int = None 
 
 @dataclass
 class Vitals:
     hunger: float = 100
     thirst: float = 100
-    current_health = Genome.max_health
     age: float = 0
 
 
@@ -60,3 +57,22 @@ class Migration:
     direction: tuple = None          # current compass heading (dx, dy)
     last_redirect_time: float = 0    # sim_time of the last heading change
     last_resource_time: float = 0    # sim_time food/water was last found, eaten or drunk
+
+@dataclass
+class Logging:
+    birth_time : float = 0
+    death_time: float = 0
+    creatures_killed : int = 0
+    times_ate : int= 0
+    times_drank : int =0
+
+    times_hunted: int =0
+    times_hunted_succesfully: int = 0
+    failed_hunts : int = 0
+
+    cause_of_death : str = ""
+
+
+    @property
+    def times_hunt_failed(self):
+        return self.times_hunted - self.times_hunted_succesfully
