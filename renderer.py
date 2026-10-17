@@ -9,7 +9,7 @@ class Renderer:
         
         
     def draw_creature(self,c):
-        if c.species == "predator": # temorary check. will be based on CreatureBehaviors later on
+        if c.genome.type == "predator": # temorary check. will be based on CreatureBehaviors later on
             pygame.draw.circle(
                         self.screen,
                         (255, 255, 255),

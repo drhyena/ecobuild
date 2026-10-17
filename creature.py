@@ -8,11 +8,11 @@ from geneticmanager import GeneticManager
 
 
 class Creature:
-    def __init__(self, x, y, world, interaction_manager, vitals=None, genome=None,
+    def __init__(self, x, y, world, interaction_manager, logging = None, vitals=None, genome=None,
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None, migration=None,geneticmanager = None, logging = None):
+                 reproduction_behavior=None, migration=None,geneticmanager = None, ):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -31,7 +31,7 @@ class Creature:
         self.hunting_behavior = hunting_behavior
         self.reproductionmanager = reproductionmanager if reproductionmanager is not None else ReproductionManager()
         self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
-        self.geneticmanager = self.geneticmanager if geneticmanager is not None else GeneticManager()
+        self.geneticmanager = geneticmanager if geneticmanager is not None else GeneticManager()
         self.migration = migration if migration is not None else Migration()
 
         self.logging = logging if logging is not None else Logging()
@@ -43,7 +43,6 @@ class Creature:
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
         self.alive = True
-        self.species = "creature"
         self.prev_x, self.prev_y = self.x, self.y
         self.prev_px, self.prev_py = self.px, self.py
 
@@ -51,7 +50,7 @@ class Creature:
         self.logging.times_drank = 0
         self.logging.creatures_killed = 0
         self.logging.times_ate = 0
-        self.birth_time = self.world.sim_time
+        self.logging.logging.birth_time = self.world.sim_time
 
         self.retarget_interval = 5
         self.last_retarget_time = self.world.sim_time
@@ -74,8 +73,11 @@ class Creature:
     def update_needs(self):
         self.vitals.hunger -= self.genome.hunger_rate*self.world.dt*1.5
         self.vitals.thirst -= self.genome.thirst_rate*self.world.dt*1.5
-        self.vitals.age = self.world.sim_time - self.birth_time
+        self.vitals.age = self.world.sim_time - self.logging.logging.birth_time
         self.reproduction.time_since_last_mating +=  self.world.dt
+
+        #if self.status in ("hunting","fleeing"):
+            #self.vitals.energy -= self.genome.energy_drain_rate*self.world.dt*1.5
 
     def check_essentials(self):
         return {
@@ -138,7 +140,7 @@ class Creature:
         self.validate_mate()
         was_migrating = self.status == "migrating"
         self.status = self.get_essential_state_decision()
-        self.vitals.age = self.world.sim_time - self.birth_time
+        self.vitals.age = self.world.sim_time - self.logging.birth_time
         if self.reproduction.current_mate is not None:
             self.status = "mating"
         elif was_migrating and self.is_needy():

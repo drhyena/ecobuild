@@ -489,7 +489,10 @@ class PredatorHungerBehavior:
     def eat_prey(self, c):
         if c.status in ["hungry", "hunting"]:
             c.vitals.hunger = 100
-            c.times_ate += 1
+            c.logging.times_ate += 1
+            c.logging.creatures_killed +=1
+            c.logging.times_hunted_successfully += 1
+            c.targeting.target_creature.logging.cause_of_death = "hunted"
             c.targeting.target_creature.alive = False
             c.migration.last_resource_time = c.world.sim_time
 
@@ -598,13 +601,15 @@ class PredatorHuntingBehaviour:
                 return random.choice(ring)
         return None
 
-    def handle_hunting_state(self, c):
+    def handle_hunting_state(self, c): 
         now = c.world.sim_time
+        #if c.vitals.energy <=0:
         if now - c.last_retarget_time >= c.retarget_interval:
-            c.last_retarget_time = now
-            c.targeting.target_creature = None
-            c.targeting.target = None
-            c.targeting.path = []
+                c.last_retarget_time = now
+                c.targeting.target_creature = None
+                c.targeting.target = None
+                c.targeting.path = []
+     
 
         if not c.targeting.target_creature or not c.targeting.target_creature.alive:
             c.targeting.target_creature = None

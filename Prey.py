@@ -9,12 +9,12 @@ class Prey(Creature):
 
     def __init__(self, x, y, world, interaction_manager):
         super().__init__(x, y, world, interaction_manager, movement=PreyMovement())
-        self.species = "prey"
+        self.genome.type = "prey"
         self.genome.iq = 0.4
         self.genome.speed = 20
         self.genome.hunger_threshold = 20
         self.genome.thirst_threshold = 30
-        self.genome.id = "prey" + str(self.id_counter)
+        self.genome.id = "prey" + str(next(self.id_counter))
 
     # -------------------------------------------------
     # Predator Awareness

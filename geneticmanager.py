@@ -112,6 +112,7 @@ class GeneticManager:
                 value = max(1, round(value))
             setattr(child.genome, name, value)
         child.genome.generation = self.set_generation(c)
+        child.logging.parents = {c.genome.id,c.reproduction.current_mate.genome.id}
         return child
 
     # ---------- helpers ----------
@@ -122,4 +123,4 @@ class GeneticManager:
         return value
 
     def set_generation(self,c):
-       return max(c.genome.generation,c.reproduction.current_mate.genome.generation)
+       return max(c.genome.generation,c.reproduction.current_mate.genome.generation) + 1

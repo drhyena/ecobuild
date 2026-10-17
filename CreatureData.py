@@ -12,6 +12,9 @@ class Genome:
     speed: float = 10
     hunger_rate: int = 1
     thirst_rate: int = 2
+    max_energy: float = 100
+    energy_drain_rate : float = 2
+    energy_regen_rate : float = 10
     max_hunger: float = 100
     max_thirst: float = 100
     fertility: int = 1  # no. of offspring per mating
@@ -25,6 +28,7 @@ class Vitals:
     hunger: float = 100
     thirst: float = 100
     age: float = 0
+    energy:float = Genome.max_energy
 
 
 @dataclass
@@ -71,6 +75,8 @@ class Logging:
     failed_hunts : int = 0
 
     cause_of_death : str = ""
+
+    parents :set= field(default_factory=set)
 
 
     @property

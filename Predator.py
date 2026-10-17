@@ -14,12 +14,12 @@ class Predator(Creature):
             hunting_behavior=PredatorHuntingBehaviour(),
         )
 
-        self.species = "predator"
+        self.genome.type = "predator"
         self.genome.iq = 0.7
         self.genome.speed = 40
         self.genome.hunger_threshold = 50
         self.genome.thirst_threshold = 30
-        self.genome.id = "predator" + self.id_counter
+        self.genome.id = "predator" + str(next(self.id_counter))
 
     # -------------------------
     # STATE OVERRIDE

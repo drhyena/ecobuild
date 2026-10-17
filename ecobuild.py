@@ -13,6 +13,7 @@ from creature import Creature
 from Predator import Predator
 from Prey import Prey
 from renderer import Renderer
+from logger import Logger
 
 pygame.init()
 
@@ -93,5 +94,8 @@ while running:
     dt_ms = clock.tick(60)
     world.dt = dt_ms/1000
     world.sim_time += world.dt
+
+    if world.sim_time%5 ==0:
+        Logger
 
 pygame.quit()
