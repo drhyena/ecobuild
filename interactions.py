@@ -51,6 +51,7 @@ class InteractionSystem:
     
     def kill_creature(self,creature):
         if creature in self.world.creature_list:
+            creature.log.log_creature(creature)
             self.world.creature_list.remove(creature)
        
 
