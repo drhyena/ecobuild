@@ -267,7 +267,7 @@ class ThirstBehavior:
     def drink_water(self, c):
         if c.status == "thirsty":
             c.vitals.thirst = 100
-            c.times_drank += 1
+            c.logging.times_drank += 1
             c.migration.last_resource_time = c.world.sim_time
 
     def handle_thirsty_state(self, c):
@@ -403,7 +403,7 @@ class PreyHungerBehavior:
     def eat_veg(self, c):
         if c.status == "hungry":
             c.vitals.hunger = 100
-            c.times_ate += 1
+            c.logging.times_ate += 1
             c.migration.last_resource_time = c.world.sim_time
 
     def handle_hungry_state(self, c):
@@ -491,8 +491,9 @@ class PredatorHungerBehavior:
             c.vitals.hunger = 100
             c.logging.times_ate += 1
             c.logging.creatures_killed +=1
-            c.logging.times_hunted_successfully += 1
+            c.logging.times_hunted_succesfully += 1
             c.targeting.target_creature.logging.cause_of_death = "hunted"
+            c.targeting.target_creature.logging.death_time = c.world.sim_time
             c.targeting.target_creature.alive = False
             c.migration.last_resource_time = c.world.sim_time
 
@@ -550,7 +551,7 @@ class PredatorHuntingBehaviour:
         target = c.targeting.target_creature  # the hunted prey already flees on its own
         herd = [
             o for o in c.world.creature_list
-            if o.species == "prey" and o.alive and o is not target
+            if o.genome.type == "prey" and o.alive and o is not target
             and max(abs(o.x - c.x), abs(o.y - c.y)) <= self.ALARM_RADIUS
         ]
 

@@ -1,24 +1,20 @@
 from creature import Creature
 from CreatureBehaviors import PredatorMovement, PredatorHungerBehavior, PredatorHuntingBehaviour
 from itertools import count
+from SpecificGenome import predator_genome
 
 
 class Predator(Creature):
     id_counter = count()
 
-    def __init__(self, x, y, world, interaction_manager):
+    def __init__(self, x, y, world, interaction_manager,log):
         super().__init__(
-            x, y, world, interaction_manager,
-            movement=PredatorMovement(),
+            x, y, world, interaction_manager,log,
+            movement=PredatorMovement(),genome= predator_genome(),
             hunger_behavior=PredatorHungerBehavior(),
             hunting_behavior=PredatorHuntingBehaviour(),
         )
 
-        self.genome.type = "predator"
-        self.genome.iq = 0.7
-        self.genome.speed = 40
-        self.genome.hunger_threshold = 50
-        self.genome.thirst_threshold = 30
         self.genome.id = "predator" + str(next(self.id_counter))
 
     # -------------------------
