@@ -8,7 +8,7 @@ from geneticmanager import GeneticManager
 
 
 class Creature:
-    def __init__(self, x, y, world, interaction_manager, logging = None, vitals=None, genome=None,
+    def __init__(self, x, y, world, interaction_manager,log, logging = None, vitals=None, genome=None,
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
@@ -42,6 +42,7 @@ class Creature:
 
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
+        self.log = log
         self.alive = True
         self.prev_x, self.prev_y = self.x, self.y
         self.prev_px, self.prev_py = self.px, self.py
@@ -50,7 +51,7 @@ class Creature:
         self.logging.times_drank = 0
         self.logging.creatures_killed = 0
         self.logging.times_ate = 0
-        self.logging.logging.birth_time = self.world.sim_time
+        self.logging.birth_time = self.world.sim_time
 
         self.retarget_interval = 5
         self.last_retarget_time = self.world.sim_time
@@ -73,7 +74,7 @@ class Creature:
     def update_needs(self):
         self.vitals.hunger -= self.genome.hunger_rate*self.world.dt*1.5
         self.vitals.thirst -= self.genome.thirst_rate*self.world.dt*1.5
-        self.vitals.age = self.world.sim_time - self.logging.logging.birth_time
+        self.vitals.age = self.world.sim_time - self.logging.birth_time
         self.reproduction.time_since_last_mating +=  self.world.dt
 
         #if self.status in ("hunting","fleeing"):
@@ -154,11 +155,13 @@ class Creature:
         
         if self.vitals.hunger <= 0 :
             self.logging.cause_of_death = "hunger"
+
+            self.logging.death_time = self.world.sim_time
             self.interaction_manager.kill_creature(self)
-           
             
         elif self.vitals.thirst <= 0:
             self.logging.cause_of_death = "thirst"
+            self.logging.death_time = self.world.sim_time
             self.interaction_manager.kill_creature(self)
         
             
