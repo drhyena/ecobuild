@@ -399,7 +399,7 @@ class World:
         min_distance = float('inf')
 
         for other in perceived_creatures:
-            if other.species != c.species:
+            if other.genome.type != c.genome.type:
                 continue  # only same-species mates
             if other.reproduction.current_mate is not None:
                 continue  # already paired up
@@ -422,7 +422,6 @@ class World:
         perceived_creatures = self.check_for_creatures_in_perspective_tiles(c)
 
         if not perceived_creatures:
-            print("no perceived creatures")
             return None
 
         closest_creature = None
@@ -431,7 +430,7 @@ class World:
         for other in perceived_creatures:
             if other == c:
                 continue  # don't target itself 
-            if other.species != "prey":
+            if other.genome.type != "prey":
                 continue   # only target prey.
 
             dx = other.x - c.x
