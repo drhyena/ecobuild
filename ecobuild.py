@@ -20,7 +20,7 @@ pygame.init()
 
 clock = pygame.time.Clock()
 
-
+log = Logger()
 world = World(GRID_WIDTH, GRID_HEIGHT, TILE_SIZE,NOISE_SCALE,
     WORLD_SEED)
 
@@ -34,12 +34,12 @@ world.set_maptypes()
 def create_creatures_random(num_predators, num_prey):
 
     predators = [
-        Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager)
+        Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager,log)
         for _ in range(num_predators)
     ]
 
     prey = [
-        Prey(*random.choice(tuple(world.land_tiles)),world,  interactmanager)
+        Prey(*random.choice(tuple(world.land_tiles)),world,  interactmanager,log)
         for _ in range(num_prey)
     ]
 
@@ -47,11 +47,14 @@ def create_creatures_random(num_predators, num_prey):
 
     return predators, prey, creatures
 
-predators, prey, creatures = create_creatures_random(10, 50)
+predators, prey, creatures = create_creatures_random(5, 100)
 #creatures = [Creature(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10)]
 
 #creatures = [       Predator(*random.choice(tuple(world.land_tiles)), world, interactmanager) for _ in range(10]
 world.creature_list = creatures
+
+for c in creatures:
+    log.log_creature(c)
 
 def create_veg_random(n):
     return [Veg(*random.choice(tuple(world.land_tiles))) for _ in range(n)]
@@ -72,7 +75,6 @@ while running:
             running = False
         if event.type == VEG_SPAWN_EVENT:
             vege.append(Veg(*random.choice(tuple(world.land_tiles))))  
-            print("veg spawned") 
     
     renderer.draw_world(world.grid_width,world.grid_height,world.shore_tiles,world.map_grid)
     #calling all creature related functions.
@@ -94,8 +96,12 @@ while running:
     dt_ms = clock.tick(60)
     world.dt = dt_ms/1000
     world.sim_time += world.dt
+    next_sample = 0
 
-    if world.sim_time%5 ==0:
-        Logger
+    if world.sim_time>= next_sample:
+        log.log_total_dataframe(world)
 
 pygame.quit()
+
+log.plot_population(log)
+log.plot_avg_speed()
