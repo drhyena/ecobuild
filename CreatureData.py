@@ -76,7 +76,7 @@ class Logging:
 
     cause_of_death : str = ""
 
-    parents :set= field(default_factory=set)
+    parents :list = field(default_factory=list)
 
 
     @property
