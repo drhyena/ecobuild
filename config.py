@@ -9,7 +9,7 @@ GRID_HEIGHT = HEIGHT // TILE_SIZE
 # -----------------------------
 # Vegetation
 # -----------------------------
-MAX_VEG_COUNT = 1
+MAX_VEG_COUNT = 100
 
 # -----------------------------
 # Noise parameters for world generation
