@@ -15,9 +15,6 @@ class Movement:
         if c.status == "mating":
             self.mating_movement(c)
             return
-        if c.status == "migrating":
-            self.migrate(c)
-            return
         if c.targeting.target is None:
             self.wander_randomly(c)
         else:
@@ -31,86 +28,6 @@ class Movement:
         at the mating point for the partner."""
         if c.targeting.path:
             self.follow_path(c)
-
-    # ---------------- migration ----------------
-
-    MIGRATE_AFTER = 3                # s hungry/thirsty without finding a resource before migrating
-    MIGRATE_REDIRECT_INTERVAL = 10   # s between 1-step (45 degree) heading changes
-    # N, NE, E, SE, S, SW, W, NW (y grows downward, so north is -y)
-    COMPASS = [(0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1)]
-
-    def migrate(self, c):
-        """Walk tile by tile along the migration heading. Water, the map edge
-        or a water corner ahead forces a redirect."""
-        m = c.migration
-        if m.direction is None:
-            self._pick_migration_direction(c)
-
-        # Entering from wandering/path-following must drop that mode's stale
-        # pixel_target first, otherwise a mid-step creature gets re-aimed
-        # using the wrong coordinates.
-        self._set_mode(c, "step")
-
-        # A step already in flight (pixel_target latched) finishes first
-        tile = None
-        if c.targeting.pixel_target is None:
-            if not self._can_step(c, m.direction):
-                if not self._redirect_from_obstacle(c):
-                    return  # boxed in
-            tile = (c.x + m.direction[0], c.y + m.direction[1])
-        self.move_to_tile(c, tile)  # tile is ignored while a step is in flight
-
-    def handle_migrate_state(self, c):
-        """Called from status_checker while migrating. Ends the trip once the
-        needed food/water is in sight; otherwise turns one compass step every
-        MIGRATE_REDIRECT_INTERVAL seconds."""
-        m = c.migration
-        if not c.is_needy() or c.sees_needed_resource():
-            m.direction = None
-            m.last_resource_time = c.world.sim_time
-            c.status = "wandering"
-            return
-        if m.direction is None:
-            self._pick_migration_direction(c)
-        elif c.world.sim_time - m.last_redirect_time >= self.MIGRATE_REDIRECT_INTERVAL:
-            self._turn(c, random.choice((-1, 1)))
-
-    def _can_step(self, c, d):
-        """True if the creature can take one step in direction d. A diagonal
-        step also needs both orthogonal tiles clear, so it never cuts across
-        the corner of a water tile."""
-        world = c.world
-        if not world.is_walkable(c.x + d[0], c.y + d[1]):
-            return False
-        if d[0] and d[1]:
-            return (world.is_walkable(c.x + d[0], c.y)
-                    and world.is_walkable(c.x, c.y + d[1]))
-        return True
-
-    def _pick_migration_direction(self, c):
-        m = c.migration
-        options = [d for d in self.COMPASS if self._can_step(c, d)]
-        m.direction = random.choice(options or self.COMPASS)
-        m.last_redirect_time = c.world.sim_time
-
-    def _turn(self, c, steps):
-        m = c.migration
-        i = self.COMPASS.index(m.direction)
-        m.direction = self.COMPASS[(i + steps) % 8]
-        m.last_redirect_time = c.world.sim_time
-
-    def _redirect_from_obstacle(self, c):
-        """Pick a new open heading, preferring turns of up to 90 degrees."""
-        m = c.migration
-        i = self.COMPASS.index(m.direction)
-        for turns in ((-2, -1, 1, 2), (-3, 3, 4)):
-            options = [self.COMPASS[(i + t) % 8] for t in turns
-                       if self._can_step(c, self.COMPASS[(i + t) % 8])]
-            if options:
-                m.direction = random.choice(options)
-                m.last_redirect_time = c.world.sim_time
-                return True
-        return False
 
     def notify_travel(self, c, target):
         """Called by interaction manager to assign a travel target."""
@@ -138,6 +55,7 @@ class Movement:
             c.prev_y = c.y
             c.x = (c.targeting.pixel_target[0] - c.world.tile_size // 2) // c.world.tile_size
             c.y = (c.targeting.pixel_target[1] - c.world.tile_size // 2) // c.world.tile_size
+            c.world.update_position_dict(c)
             c.targeting.pixel_target = None
 
     # finds a path through tiles.
@@ -171,6 +89,7 @@ class Movement:
         if self.at_pixel_target(c):
             c.prev_x, c.prev_y = c.x, c.y
             c.x, c.y = c.targeting.path.pop(0)
+            c.world.update_position_dict(c)
             c.targeting.pixel_target = None
 
     def lerp(self, start, end, t):
@@ -212,6 +131,7 @@ class Movement:
             c.prev_x, c.prev_y = c.x, c.y
             c.x = (target[0] - ts // 2) // ts
             c.y = (target[1] - ts // 2) // ts
+            c.world.update_position_dict(c)
             c.targeting.pixel_target = None
             c.targeting.target = None  # step done; the state handler picks the next one
 
@@ -236,10 +156,11 @@ class ReproductionBehavior:
             c.world.grid_height
         )
 
-        if not test_path:
-            # unreachable partner: drop the plan and wait a full interval before retrying
+        if not test_path or len(test_path) - 1 > c.reproductionmanager.MAX_MATE_PATH:
+            # unreachable or too far to walk: drop the plan and don't pair these two again for a
+            # while (they're free to look for someone else straight away)
+            c.reproductionmanager.reject(c, mate)
             c.reproductionmanager.cancel_mating(c)
-            c.reproduction.time_since_last_mating = 0
             return
 
         test_path1, test_path2 = c.reproductionmanager.split_path(test_path)
@@ -268,7 +189,6 @@ class ThirstBehavior:
         if c.status == "thirsty":
             c.vitals.thirst = 100
             c.logging.times_drank += 1
-            c.migration.last_resource_time = c.world.sim_time
 
     def handle_thirsty_state(self, c):
         if c.targeting.target:
@@ -277,16 +197,12 @@ class ThirstBehavior:
         c.targeting.target = c.world.find_closest_shore(
             c.x, c.y, c.targeting.perceived_tiles
         )
-        if c.targeting.target is not None:
-            c.migration.last_resource_time = c.world.sim_time
 
 
 class PreyMovement(Movement):
     def movement_decider(self, c):
         if c.status == "mating":
             self.mating_movement(c)
-        elif c.status == "migrating":
-            self.migrate(c)
         elif c.status == "dispersing":
             self.flee_movement(c)
         elif c.status == "retreating":
@@ -310,7 +226,7 @@ class PreyMovement(Movement):
     def handle_flee_state(self, c):
         predator = c.targeting.targeted_by
         # Predator gone
-        if not predator or not predator.alive:
+        if not predator or not predator.vitals.alive:
             c.targeting.targeted_by = None
             c.targeting.target = None
             return
@@ -344,7 +260,7 @@ class PreyMovement(Movement):
         """Step away from the predator that raised the alarm. Like handle_flee_state,
         but sometimes takes a sideways step so the herd fans out instead of running in a line."""
         predator = c.targeting.alarm_source
-        if not predator or not predator.alive:
+        if not predator or not predator.vitals.alive:
             c.targeting.target = None
             return
 
@@ -404,7 +320,6 @@ class PreyHungerBehavior:
         if c.status == "hungry":
             c.vitals.hunger = 100
             c.logging.times_ate += 1
-            c.migration.last_resource_time = c.world.sim_time
 
     def handle_hungry_state(self, c):
         if c.targeting.target:
@@ -419,15 +334,12 @@ class PreyHungerBehavior:
         if not c.interaction_manager.veg_is_being_targeted(c):
             c.targeting.target = (c.targeting.target_veg.v_x, c.targeting.target_veg.v_y)
             c.last_retarget_time = c.world.sim_time
-            c.migration.last_resource_time = c.world.sim_time
 
 
 class PredatorMovement(Movement):
     def movement_decider(self, c):
         if c.status == "mating":
             self.mating_movement(c)
-        elif c.status == "migrating":
-            self.migrate(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "hunting":
@@ -451,7 +363,7 @@ class PredatorMovement(Movement):
 
     def pounce(self, c):
         prey = c.targeting.target_creature
-        if prey is None or not prey.alive:
+        if prey is None or not prey.vitals.alive:
             return False
 
         dx = prey.px - c.px
@@ -471,7 +383,7 @@ class PredatorHungerBehavior:
         # Ensure we are actually on the prey
         if (
             c.targeting.target_creature
-            and c.targeting.target_creature.alive
+            and c.targeting.target_creature.vitals.alive
             and c.interaction_manager.is_on_target_creature(
                 c.targeting.target_creature, c
             )
@@ -494,8 +406,7 @@ class PredatorHungerBehavior:
             c.logging.times_hunted_succesfully += 1
             c.targeting.target_creature.logging.cause_of_death = "hunted"
             c.targeting.target_creature.logging.death_time = c.world.sim_time
-            c.targeting.target_creature.alive = False
-            c.migration.last_resource_time = c.world.sim_time
+            c.targeting.target_creature.vitals.alive = False
 
     def notify_prey(self, c):
         if c.targeting.target_creature:
@@ -531,7 +442,6 @@ class PredatorHungerBehavior:
 
         # Inform prey it is being hunted
         self.notify_prey(c)
-        c.migration.last_resource_time = c.world.sim_time
 
 
 class PredatorHuntingBehaviour:
@@ -551,7 +461,7 @@ class PredatorHuntingBehaviour:
         target = c.targeting.target_creature  # the hunted prey already flees on its own
         herd = [
             o for o in c.world.creature_list
-            if o.genome.type == "prey" and o.alive and o is not target
+            if o.genome.type == "prey" and o.vitals.alive and o is not target
             and max(abs(o.x - c.x), abs(o.y - c.y)) <= self.ALARM_RADIUS
         ]
 
@@ -612,7 +522,7 @@ class PredatorHuntingBehaviour:
                 c.targeting.path = []
      
 
-        if not c.targeting.target_creature or not c.targeting.target_creature.alive:
+        if not c.targeting.target_creature or not c.targeting.target_creature.vitals.alive:
             c.targeting.target_creature = None
             c.targeting.target = None
             return
