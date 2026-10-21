@@ -1,10 +1,19 @@
 import pygame
-from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration, Logging
+from CreatureData import Vitals, Genome, Targeting, Reproduction, Logging
 from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
 from reproductionmanager import ReproductionManager
 from geneticmanager import GeneticManager
 
-
+_OFFSETS = {}
+def get_offsets(radius):
+        offsets = _OFFSETS.get(radius)
+        if offsets is None:
+            offsets = [(dx, dy)
+                    for dx in range(-radius, radius + 1)
+                    for dy in range(-radius, radius + 1)
+                    if not (dx == 0 and dy == 0)]
+            _OFFSETS[radius] = offsets
+        return offsets
 
 
 class Creature:
@@ -12,7 +21,7 @@ class Creature:
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None, migration=None,geneticmanager = None, ):
+                 reproduction_behavior=None, geneticmanager = None, ):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -32,18 +41,13 @@ class Creature:
         self.reproductionmanager = reproductionmanager if reproductionmanager is not None else ReproductionManager()
         self.reproduction_behavior = reproduction_behavior if reproduction_behavior is not None else ReproductionBehavior()
         self.geneticmanager = geneticmanager if geneticmanager is not None else GeneticManager()
-        self.migration = migration if migration is not None else Migration()
 
         self.logging = logging if logging is not None else Logging()
-
-        self.migration.last_resource_time = self.world.sim_time
-        self.migration.last_redirect_time = self.world.sim_time
 
 
         self.signal = {"type": None, "from": None, "tile": None}
         self.interaction_manager = interaction_manager
         self.log = log
-        self.alive = True
         self.prev_x, self.prev_y = self.x, self.y
         self.prev_px, self.prev_py = self.px, self.py
 
@@ -55,6 +59,7 @@ class Creature:
 
         self.retarget_interval = 5
         self.last_retarget_time = self.world.sim_time
+        self._perception_key = None
 
     # -------------------------
     # MAIN UPDATE LOOP
@@ -101,55 +106,32 @@ class Creature:
                 self.status = "mating"
 
     def validate_mate(self):
-        """Drop the mating plan if the partner has died."""
+        """Drop the mating plan if it can no longer work out: the partner died, either
+        creature can't afford mating any more (hungry/thirsty), or it's taking too long."""
         mate = self.reproduction.current_mate
-        if mate is not None and not mate.alive:
-            self.reproductionmanager.cancel_mating(self)
-
-    # -------------------------
-    # MIGRATION (state helpers)
-    # -------------------------
-
-    def is_needy(self):
-        return (self.vitals.thirst < self.genome.thirst_threshold
-                or self.vitals.hunger < self.genome.hunger_threshold)
+        if mate is None:
+            return
+        rm = self.reproductionmanager
+        if not mate.vitals.alive:
+            rm.cancel_mating(self)
+        elif rm.check_if_mating_timed_out(self):
+            rm.reject(self, mate)  # don't immediately re-pair with the same partner
+            rm.cancel_mating(self)
+        elif not (rm.check_if_can_afford_mating(self) and rm.check_if_can_afford_mating(mate)):
+            rm.cancel_mating(self)
 
     def sees_food(self):
         return self.world.find_closest_veg(
             self.x, self.y, self.targeting.perceived_tiles) is not None
 
-    def sees_needed_resource(self):
-        """True if whatever this creature is short of is within its perception."""
-        if self.vitals.thirst < self.genome.thirst_threshold:
-            if self.world.find_closest_shore(
-                    self.x, self.y, self.targeting.perceived_tiles) is not None:
-                return True
-        if self.vitals.hunger < self.genome.hunger_threshold:
-            return self.sees_food()
-        return False
-
-    def check_migration(self):
-        """Hold the 'no food/water found' clock at zero while needs are met.
-        Once hungry/thirsty for too long without a target, start migrating."""
-        now = self.world.sim_time
-        if self.status not in ("hungry", "thirsty"):
-            self.migration.last_resource_time = now
-        elif now - self.migration.last_resource_time >= self.movement.MIGRATE_AFTER:
-            self.status = "migrating"
-
     def update_state(self):
         self.validate_mate()
-        was_migrating = self.status == "migrating"
         self.status = self.get_essential_state_decision()
         self.vitals.age = self.world.sim_time - self.logging.birth_time
-        if self.reproduction.current_mate is not None:
+        if self.reproduction.current_mate is not None and self.reproductionmanager.check_if_both_are_ready_to_reproduce():
             self.status = "mating"
-        elif was_migrating and self.is_needy():
-            self.status = "migrating"  # stays until handle_migrate_state ends it
-        else:
-            self.check_migration()
-            if self.status == "wandering":
-                self.get_non_essential_state_decision()
+        elif self.status == "wandering":
+            self.get_non_essential_state_decision()
 
     def check_death(self):
         
@@ -200,34 +182,50 @@ class Creature:
     # PERCEPTION
     # -------------------------
 
+# Drop-in replacement for Creature.update_perceived_tiles in creature.py.
+#
+# Two changes:
+#   1. The (dx, dy) offsets only depend on the radius, so they are built once per radius
+#      and shared by every creature.
+#   2. The tile list only depends on (x, y, radius). A creature stays on one tile for many
+#      frames, so the list is rebuilt only when it changes tile (or its radius changes).
+#
+# Setup:
+#   - paste _OFFSETS and get_offsets above the Creature class (module level)
+#   - add   self._perception_key = None   anywhere in Creature.__init__
+#   - replace the old update_perceived_tiles method with the one below
+#
+# Check first: nothing else should modify targeting.perceived_tiles in place
+# (e.g. .remove() or .append()), because the list is now reused between frames.
+# The radius must stay an int (range() needs it), which it is after Genome/GeneticManager rounding.
+
+    
+
+
+
+    # inside class Creature:
     def update_perceived_tiles(self):
-        self.targeting.perceived_tiles.clear()
-        radius = self.genome.perceptive_radius
-        r = [
-            (dx, dy)
-            for dx in range(-(radius),(radius+1))
-            for dy in range(-(radius), (radius+1))
-            if not (dx == 0 and dy == 0)
-        ]
+        key = (self.x, self.y, self.genome.perceptive_radius)
+        if key == self._perception_key:
+            return  # same tile, same radius: the old list is still right
+        self._perception_key = key
 
+        x, y = self.x, self.y
+        w, h = self.world.grid_width, self.world.grid_height
         self.targeting.perceived_tiles = [
-            (self.x + dx, self.y + dy)
-            for dx, dy in r
-            if 0 <= self.x + dx < self.world.grid_width
-            and 0 <= self.y + dy < self.world.grid_height
+            (x + dx, y + dy)
+            for dx, dy in get_offsets(self.genome.perceptive_radius)
+            if 0 <= x + dx < w and 0 <= y + dy < h
         ]
-
-    # -------------------------
-    # TARGET DECISION (delegates to hunger/thirst behavior components)
-    # -------------------------
+        # -------------------------
+        # TARGET DECISION (delegates to hunger/thirst behavior components)
+        # -------------------------
 
     def status_checker(self):
         if self.status == "hungry":
             self.hunger_behavior.handle_hungry_state(self)
         elif self.status == "thirsty":
             self.thirst_behavior.handle_thirsty_state(self)
-        elif self.status == "migrating":
-            self.movement.handle_migrate_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
         else:
