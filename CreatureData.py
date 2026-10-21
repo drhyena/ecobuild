@@ -29,6 +29,7 @@ class Vitals:
     thirst: float = 100
     age: float = 0
     energy:float = Genome.max_energy
+    alive : bool = True
 
 
 @dataclass
@@ -53,14 +54,10 @@ class Reproduction:
     ready_to_mate: bool = False
     time_since_last_mating: int = 0
     current_mate: object = None
+    paired_at: float = 0  # sim_time the current pairing started (for the mating timeout)
+    rejected: dict = field(default_factory=dict)  # creature -> sim_time until which we won't pair with it again
     children :set =  field(default_factory=set)
 
-
-@dataclass
-class Migration:
-    direction: tuple = None          # current compass heading (dx, dy)
-    last_redirect_time: float = 0    # sim_time of the last heading change
-    last_resource_time: float = 0    # sim_time food/water was last found, eaten or drunk
 
 @dataclass
 class Logging:
