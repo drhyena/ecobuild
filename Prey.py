@@ -37,7 +37,7 @@ class Prey(Creature):
             return False
 
         # the alarm is over when the predator dies or the alarm runs out
-        if not predator.alive or self.world.sim_time >= t.alarm_until:
+        if not predator.vitals.alive or self.world.sim_time >= t.alarm_until:
             self.end_alarm()
             return False
 
@@ -76,7 +76,7 @@ class Prey(Creature):
 
         # Release a predator that died or is no longer hunting this prey
         if predator is not None and (
-            not predator.alive or predator.targeting.target_creature is not self
+            not predator.vitals.alive or predator.targeting.target_creature is not self
         ):
             self.targeting.targeted_by = None
             predator = None
@@ -104,10 +104,6 @@ class Prey(Creature):
             self.status = "mating"
             return
 
-        # Migrating: stays in this state until handle_migrate_state ends it
-        if self.status == "migrating":
-            return
-
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
                 self.status = "thirsty"
@@ -118,8 +114,6 @@ class Prey(Creature):
             else:
                 self.status = "wandering"
                 self.get_non_essential_state_decision()
-
-            self.check_migration()
 
     # -------------------------------------------------
     # State Dispatcher (delegates to behavior components)
@@ -141,9 +135,6 @@ class Prey(Creature):
 
         elif self.status == "retreating":
             self.movement.handle_retreat_state(self)
-
-        elif self.status == "migrating":
-            self.movement.handle_migrate_state(self)
 
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)

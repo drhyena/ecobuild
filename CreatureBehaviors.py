@@ -159,6 +159,9 @@ class ReproductionBehavior:
         if not test_path or len(test_path) - 1 > c.reproductionmanager.MAX_MATE_PATH:
             # unreachable or too far to walk: drop the plan and don't pair these two again for a
             # while (they're free to look for someone else straight away)
+            c.reproductionmanager.debug(
+                f"{c.genome.id} x {mate.genome.id} dropped: no path or longer than "
+                f"{c.reproductionmanager.MAX_MATE_PATH} tiles")
             c.reproductionmanager.reject(c, mate)
             c.reproductionmanager.cancel_mating(c)
             return
@@ -318,7 +321,7 @@ class PreyHungerBehavior:
 
     def eat_veg(self, c):
         if c.status == "hungry":
-            c.vitals.hunger = 100
+            c.vitals.hunger = min(c.vitals.hunger + 40,100)
             c.logging.times_ate += 1
 
     def handle_hungry_state(self, c):
@@ -351,7 +354,7 @@ class PredatorMovement(Movement):
             if c.targeting.path:
                 self.follow_path(c)
 
-    POUNCE_RANGE = 4  # pixels
+    POUNCE_RANGE = 5  # pixels
 
     def hunting_movement(self, c):
         if self.pounce(c):
@@ -374,6 +377,7 @@ class PredatorMovement(Movement):
         c.prev_x, c.prev_y = c.x, c.y
         c.px, c.py = prey.px, prey.py          # pixel position
         c.x, c.y = prey.x, prey.y              # tile position
+        c.world.update_position_dict(c)
         c.targeting.pixel_target = None        # cancel any step in progress
         c.targeting.target = (prey.x, prey.y)  # now "on target" for the eat check
         return True
@@ -389,9 +393,10 @@ class PredatorHungerBehavior:
             )
             and c.targeting.target_creature.targeting.targeted_by == c
         ):
+            prey = c.targeting.target_creature
             self.eat_prey(c)
 
-            c.interaction_manager.kill_creature(c.targeting.target_creature)
+            c.interaction_manager.kill_creature(prey)  # marks it dead, logs it, removes it from creature_list
 
             # Clear hunt lock
             c.targeting.target_creature = None
@@ -406,7 +411,6 @@ class PredatorHungerBehavior:
             c.logging.times_hunted_succesfully += 1
             c.targeting.target_creature.logging.cause_of_death = "hunted"
             c.targeting.target_creature.logging.death_time = c.world.sim_time
-            c.targeting.target_creature.vitals.alive = False
 
     def notify_prey(self, c):
         if c.targeting.target_creature:

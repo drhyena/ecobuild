@@ -9,31 +9,19 @@ class InteractionSystem:
     def is_on_target(self,c):
         return (c.x, c.y) == c.targeting.target
 
-   
-    def check_for_creatures_in_perspective_tiles(self,c1):
-        perceived_creatures = []
-        for c in self.world.creature_list:
-            if c is not c1 and (c.x, c.y) in c1.targeting.perceived_tiles:
-                perceived_creatures.append(c)
-        return perceived_creatures
-    
-    def if_any_creature_in_perspective_tiles(self,c1,c2):
-        if (c2.x,c2.y) in c1.targeting.perceived_tiles:
-            return True
 
-    def create_new_creature(self,c):
-        pass        
     
     def veg_is_being_targeted(self, c):
         if c.targeting.target_veg is None:
             return False
-
-        for other in self.world.creature_list:
-            if other == c:
-                continue
-
-            if other.targeting.target_veg is not None and other.targeting.target_veg == c.targeting.target_veg:
-                return True
+        veg = c.targeting.target_veg
+        for tile in veg.tiles_within_max_perceivable_radius:     
+            other = self.world.position_dict[tile]
+            if other is not None:
+                if other == c:
+                    continue
+                if other.targeting.target_veg is not None and other.targeting.target_veg == c.targeting.target_veg:
+                    return True
 
         return False
 
@@ -42,17 +30,19 @@ class InteractionSystem:
     def kill_veg(self, veg):
         if veg in self.world.veg_list:
             veg.alive = False
+            c = veg.claimed_by
+            c.targeting.target_veg = None 
             veg.claimed_by = None
             self.world.veg_list.remove(veg)
-
-        for creature in self.world.creature_list:
-            if creature.targeting.target_veg == veg:
-                creature.targeting.target_veg = None
+            self.world.remove_v_position_from_dict(veg)
     
     def kill_creature(self,creature):
         if creature in self.world.creature_list:
+            creature.vitals.alive = False
             creature.log.log_creature(creature)
+
             self.world.creature_list.remove(creature)
+            self.world.remove_c_position_from_dict(creature)
        
 
     def notify_prey(self,predator,prey):

@@ -134,8 +134,13 @@ class Creature:
             self.get_non_essential_state_decision()
 
     def check_death(self):
+        if self.vitals.age >= 100:
+            self.logging.cause_of_death = "age"
+            self.logging.death_time = self.world.sim_time
+            self.interaction_manager.kill_creature(self)            
+
         
-        if self.vitals.hunger <= 0 :
+        elif self.vitals.hunger <= 0 :
             self.logging.cause_of_death = "hunger"
 
             self.logging.death_time = self.world.sim_time
@@ -145,6 +150,8 @@ class Creature:
             self.logging.cause_of_death = "thirst"
             self.logging.death_time = self.world.sim_time
             self.interaction_manager.kill_creature(self)
+
+        
         
             
 

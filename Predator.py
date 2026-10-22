@@ -36,10 +36,6 @@ class Predator(Creature):
             self.status = "mating"
             return
 
-        # Migrating: stays in this state until handle_migrate_state ends it
-        if self.status == "migrating":
-            return
-
         # Normal need-based logic
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
@@ -49,8 +45,6 @@ class Predator(Creature):
             else:
                 self.status = "wandering"
                 self.get_non_essential_state_decision()
-
-            self.check_migration()
 
     # -------------------------
     # EAT PREY (override — delegates to hunger_behavior)
@@ -95,8 +89,6 @@ class Predator(Creature):
             self.thirst_behavior.handle_thirsty_state(self)
         elif self.status == "hunting":
             self.hunting_behavior.handle_hunting_state(self)
-        elif self.status == "migrating":
-            self.movement.handle_migrate_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
 

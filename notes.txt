@@ -99,3 +99,12 @@ the steps of geneticmanager(each a seperate function):
 3. mutated genes, if any, are checked for buffs and nerfs. 
 4. simultaenous to the buff or nerf check, corresponding antithesis genes are nerfed/buffed. 
 5. the creature is bestowed upon with the fully transformed genetics and officially "born"
+
+
+
+mating fixes:
+
+- first, in check_for_viable_mate() , check whethet the mate found by find_closest_mate() returns check_if_ready_to_seek_mate() as true. 
+
+
+add targeted_by set to veg() to avoid o(n) checks

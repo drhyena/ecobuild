@@ -1,4 +1,8 @@
+import math
+import os
+
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 
@@ -289,7 +293,7 @@ class Logger:
             setattr(self, f"predator_{gene}", mean(frame[gene][i] for i in predators))
 
         # from the living creatures (not stored in creature_frame)
-        live = [c for c in world.creature_list if c.alive]
+        live = [c for c in world.creature_list if c.vitals.alive]
         prey_live = [c for c in live if c.genome.type == "prey"]
         predator_live = [c for c in live if c.genome.type == "predator"]
 
@@ -353,30 +357,336 @@ class Logger:
             plt.show()
         return fig
 
-    def plot_avg_speed(self, save_path=None, show=True):
-        """Plot the average speed of living prey and predators against sim time.
+    # ------------------------------------------------------------------
+    # charts and summary
+    # ------------------------------------------------------------------
+    # plot_all_stats() builds all of these in one go. Each one can also be called on its own:
+    # every plot_* method takes save_path / show, and returns the figure (None if no data yet).
 
-        Uses the prey_speed / predator_speed columns that log_total_dataframe() fills in.
-        A species with nobody alive at a sample has no average, so its line has a gap there.
-        """
-        df = self.build_data_frame()
-        if df.empty:
-            print("No samples logged yet - call logger.log_total_dataframe(world) first.")
-            return None
+    SPECIES_COLOURS = {"prey": "tab:green", "predator": "tab:red"}
+    CAUSES = ["starved", "thirst", "eaten"]
+    CAUSE_COLOURS = {"starved": "tab:orange", "thirst": "tab:blue", "eaten": "tab:red"}
+    STATUSES = ["wandering", "hungry", "thirsty", "hunting", "fleeing", "dispersing",
+                "retreating", "migrating", "mating"]
+    STATUS_COLOURS = {"wandering": "#9aa5b1", "hungry": "tab:orange", "thirsty": "tab:blue",
+                      "hunting": "tab:red", "fleeing": "tab:purple", "dispersing": "tab:olive",
+                      "retreating": "tab:brown", "migrating": "tab:cyan", "mating": "tab:pink"}
 
-        fig, ax = plt.subplots(figsize=(10, 5))
-        ax.plot(df["time"], df["prey_speed"], label="Prey", color="tab:green")
-        ax.plot(df["time"], df["predator_speed"], label="Predators", color="tab:red")
-
-        ax.set_xlabel("Sim time (s)")
-        ax.set_ylabel("Average speed")
-        ax.set_title("Average speed over time")
-        ax.grid(True, alpha=0.3)
-        ax.legend()
+    def _finish(self, fig, save_path, show):
         fig.tight_layout()
-
         if save_path:
             fig.savefig(save_path, dpi=150)
         if show:
             plt.show()
         return fig
+
+    def _samples(self):
+        """The 5-second samples as a DataFrame with every column numeric (None -> NaN).
+        Returns None when nothing has been logged yet."""
+        df = self.build_data_frame()
+        if df.empty:
+            print("No samples logged yet - call logger.log_total_dataframe(world) first.")
+            return None
+        return df.apply(pd.to_numeric, errors="coerce")
+
+    def _creatures(self):
+        """creature_frame as a DataFrame with numeric columns, plus 'lifespan' (NaN while alive)
+        and 'born' (False for the creatures the sim started with). None if nobody is logged."""
+        df = self.build_creature_frame()
+        if df.empty:
+            print("No creatures logged yet.")
+            return None
+        numeric = ["birth_time", "death_time", "generation", "times_ate", "times_drank",
+                   "creatures_killed", "children_count"] + self.GENES
+        for col in numeric:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+        df["lifespan"] = df["death_time"] - df["birth_time"]
+        df["born"] = df["parent_a_id"].notna()
+        return df
+
+    @staticmethod
+    def _label(name):
+        return name.replace("_", " ").capitalize()
+
+    def plot_genes(self, save_path=None, show=True):
+        """One small chart per gene: the average value among living prey and predators over time.
+        This is where evolution shows up (e.g. speed creeping upwards)."""
+        df = self._samples()
+        if df is None:
+            return None
+
+        genes = [g for g in self.GENES
+                 if df[f"prey_{g}"].notna().any() or df[f"predator_{g}"].notna().any()]
+        if not genes:
+            return None
+        cols = 3
+        rows = math.ceil(len(genes) / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(14, 3.1 * rows), sharex=True, squeeze=False)
+
+        for ax, gene in zip(axes.flat, genes):
+            for species, colour in self.SPECIES_COLOURS.items():
+                ax.plot(df["time"], df[f"{species}_{gene}"], color=colour,
+                        label=species.capitalize())
+            ax.set_title(self._label(gene))
+            ax.grid(True, alpha=0.3)
+        for ax in axes.flat[len(genes):]:
+            ax.set_visible(False)
+        for ax in axes[-1]:
+            ax.set_xlabel("Sim time (s)")
+        axes[0][0].legend()
+        fig.suptitle("Average gene values of living creatures")
+        return self._finish(fig, save_path, show)
+
+    def plot_vitals(self, save_path=None, show=True):
+        """Average hunger, thirst and age of living prey and predators over time."""
+        df = self._samples()
+        if df is None:
+            return None
+
+        panels = [("hunger", "Average hunger", (0, 100)),
+                  ("thirst", "Average thirst", (0, 100)),
+                  ("age", "Average age (s)", None)]
+        fig, axes = plt.subplots(len(panels), 1, figsize=(10, 9), sharex=True)
+        for ax, (stat, title, limits) in zip(axes, panels):
+            for species, colour in self.SPECIES_COLOURS.items():
+                ax.plot(df["time"], df[f"{species}_avg_{stat}"], color=colour,
+                        label=species.capitalize())
+            ax.set_title(title)
+            if limits:
+                ax.set_ylim(*limits)
+            ax.grid(True, alpha=0.3)
+        axes[0].legend()
+        axes[-1].set_xlabel("Sim time (s)")
+        return self._finish(fig, save_path, show)
+
+    def plot_activity(self, save_path=None, show=True):
+        """How many creatures are in each status over time (stacked), so you can see what the
+        population is spending its time on. Statuses nobody ever had are left out."""
+        df = self._samples()
+        if df is None:
+            return None
+
+        used = [s for s in self.STATUSES if df[f"status_{s}"].fillna(0).sum() > 0]
+        if not used:
+            return None
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.stackplot(df["time"], [df[f"status_{s}"].fillna(0) for s in used],
+                     labels=[s.capitalize() for s in used],
+                     colors=[self.STATUS_COLOURS[s] for s in used], alpha=0.9)
+        ax.set_xlabel("Sim time (s)")
+        ax.set_ylabel("Creatures")
+        ax.set_title("What creatures are doing (all species)")
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc="upper left", ncol=2)
+        return self._finish(fig, save_path, show)
+
+    def plot_births_deaths(self, save_path=None, show=True):
+        """Births per sample interval for each species, and deaths per interval split by cause for
+        prey and predators separately. Shows which side is growing and what is holding it back."""
+        df = self._samples()
+        cf = self._creatures()
+        if df is None or cf is None:
+            return None
+
+        edges = [0.0] + list(df["time"])  # one bin per sample interval
+        x = df["time"]
+        fig, axes = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
+
+        ax = axes[0]
+        for species, colour in self.SPECIES_COLOURS.items():
+            born = cf[(cf["species"] == species) & cf["born"]]["birth_time"].dropna()
+            counts, _ = np.histogram(born, bins=edges)
+            ax.plot(x, counts, color=colour, label=species.capitalize())
+        ax.set_title("Births per sample interval")
+        ax.set_ylabel("Births")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+        for ax, (species, colour) in zip(axes[1:], self.SPECIES_COLOURS.items()):
+            dead = cf[(cf["species"] == species) & cf["death_time"].notna()]
+            series = []
+            for cause in self.CAUSES:
+                times = dead[dead["cause_of_death"] == cause]["death_time"]
+                series.append(np.histogram(times, bins=edges)[0])
+            ax.stackplot(x, series, labels=[c.capitalize() for c in self.CAUSES],
+                         colors=[self.CAUSE_COLOURS[c] for c in self.CAUSES], alpha=0.85)
+            ax.set_title(f"{species.capitalize()} deaths per sample interval, by cause")
+            ax.set_ylabel("Deaths")
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc="upper left")
+        axes[-1].set_xlabel("Sim time (s)")
+        return self._finish(fig, save_path, show)
+
+    def plot_generations(self, save_path=None, show=True):
+        """Average and highest generation among the living, and the running count of gene
+        mutations that were buffs vs nerfs."""
+        df = self._samples()
+        if df is None:
+            return None
+
+        fig, (ax, ax2) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+        ax.plot(df["time"], df["avg_generation"], label="Average", color="tab:blue")
+        ax.plot(df["time"], df["max_generation"], label="Highest", color="black")
+        ax.set_ylabel("Generation")
+        ax.set_title("Generations alive")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+
+        ax2.plot(df["time"], df["mutations_buff"], label="Buffs", color="tab:green")
+        ax2.plot(df["time"], df["mutations_nerf"], label="Nerfs", color="tab:red")
+        ax2.set_xlabel("Sim time (s)")
+        ax2.set_ylabel("Mutations (running total)")
+        ax2.set_title("Mutations")
+        ax2.grid(True, alpha=0.3)
+        ax2.legend()
+        return self._finish(fig, save_path, show)
+
+    def plot_lifespans(self, save_path=None, show=True):
+        """Histogram of how long each species lived before dying, stacked by cause of death.
+        Only creatures that have died are counted."""
+        cf = self._creatures()
+        if cf is None:
+            return None
+
+        fig, axes = plt.subplots(2, 1, figsize=(10, 8))
+        for ax, species in zip(axes, self.SPECIES_COLOURS):
+            dead = cf[(cf["species"] == species) & cf["lifespan"].notna()]
+            ax.set_title(f"{species.capitalize()} lifespans")
+            ax.set_xlabel("Lifespan (s)")
+            ax.set_ylabel("Creatures")
+            ax.grid(True, alpha=0.3)
+            if dead.empty:
+                ax.text(0.5, 0.5, "nobody has died yet", ha="center", va="center",
+                        transform=ax.transAxes)
+                continue
+            groups = [dead[dead["cause_of_death"] == c]["lifespan"] for c in self.CAUSES]
+            keep = [(g, c) for g, c in zip(groups, self.CAUSES) if len(g)]
+            ax.hist([g for g, _ in keep], bins=20, stacked=True,
+                    label=[c.capitalize() for _, c in keep],
+                    color=[self.CAUSE_COLOURS[c] for _, c in keep], alpha=0.85)
+            ax.legend()
+        return self._finish(fig, save_path, show)
+
+    def plot_selection(self, genes=("speed", "perceptive_radius", "hunger_threshold",
+                                    "thirst_threshold"), save_path=None, show=True):
+        """For each species and gene: gene value vs number of children, one dot per creature that
+        has died (so unfinished lives don't count as childless), with a straight-line trend.
+        An upward line means that gene is being selected for."""
+        cf = self._creatures()
+        if cf is None:
+            return None
+
+        fig, axes = plt.subplots(2, len(genes), figsize=(4 * len(genes), 7), squeeze=False)
+        rng = np.random.default_rng(0)  # fixed jitter so the picture doesn't change between calls
+        for row, (species, colour) in zip(axes, self.SPECIES_COLOURS.items()):
+            sub = cf[(cf["species"] == species) & cf["death_time"].notna()]
+            for ax, gene in zip(row, genes):
+                ax.set_title(f"{species.capitalize()}: {self._label(gene)}")
+                ax.set_xlabel(self._label(gene))
+                ax.set_ylabel("Children")
+                ax.grid(True, alpha=0.3)
+                x, y = sub[gene], sub["children_count"]
+                ok = x.notna() & y.notna()
+                x, y = x[ok], y[ok]
+                if x.empty:
+                    ax.text(0.5, 0.5, "no data", ha="center", va="center", transform=ax.transAxes)
+                    continue
+                ax.scatter(x, y + rng.uniform(-0.15, 0.15, len(y)), s=12, alpha=0.4, color=colour)
+                if x.nunique() > 2:
+                    slope, intercept = np.polyfit(x, y, 1)
+                    xs = np.linspace(x.min(), x.max(), 50)
+                    ax.plot(xs, slope * xs + intercept, color="black", linewidth=1.5)
+        fig.suptitle("Does a gene pay off? (children vs gene value, creatures that have died)")
+        return self._finish(fig, save_path, show)
+
+    def summary(self, print_it=True):
+        """Totals for each species, worked out from creature_frame. Returns
+        {species: {stat: value}}; prints it as a table too unless print_it=False."""
+        cf = self._creatures()
+        if cf is None:
+            return {}
+
+        out = {}
+        for species in self.SPECIES_COLOURS:
+            sub = cf[cf["species"] == species]
+            if sub.empty:
+                continue
+            dead = sub[sub["death_time"].notna()]
+            alive = sub[sub["death_time"].isna()]
+            causes = dead["cause_of_death"].value_counts()
+            stats = {
+                "ever lived": len(sub),
+                "alive now": len(alive),
+                "born in the sim": int(sub["born"].sum()),
+                "died": len(dead),
+                "  starved": int(causes.get("starved", 0)),
+                "  thirst": int(causes.get("thirst", 0)),
+                "  eaten": int(causes.get("eaten", 0)),
+                "avg lifespan (s)": dead["lifespan"].mean() if len(dead) else None,
+                "longest life (s)": dead["lifespan"].max() if len(dead) else None,
+                "avg meals eaten": sub["times_ate"].mean(),
+                "avg drinks": sub["times_drank"].mean(),
+                "avg children": sub["children_count"].mean(),
+                "highest generation": sub["generation"].max(),
+            }
+            if species == "predator":
+                stats["avg kills"] = sub["creatures_killed"].mean()
+            for gene in self.GENES:  # current averages of the living
+                if alive[gene].notna().any():
+                    stats[f"avg {gene.replace('_', ' ')} (alive)"] = alive[gene].mean()
+            out[species] = stats
+
+        if print_it:
+            self._print_summary(out)
+        return out
+
+    @staticmethod
+    def _print_summary(summary):
+        def fmt(v):
+            if v is None or (isinstance(v, float) and v != v):
+                return "-"
+            return f"{v:.2f}" if isinstance(v, float) else str(v)
+
+        species = list(summary)
+        stats = list(dict.fromkeys(k for s in species for k in summary[s]))
+        width = max(len(k) for k in stats) + 2
+        print("\n" + "SIM SUMMARY".ljust(width) + "".join(s.capitalize().rjust(12) for s in species))
+        print("-" * (width + 12 * len(species)))
+        for k in stats:
+            print(k.ljust(width) + "".join(fmt(summary[s].get(k)).rjust(12) for s in species))
+        print()
+
+    def plot_all_stats(self, save_dir=None, show=True, log_scale=False):
+        """Every relevant chart plus the summary table, in one call: population, births and deaths,
+        genes, vitals, activity, generations, lifespans and selection.
+        save_dir: if given, each chart is saved there as a PNG (the folder is created).
+        show: open all the charts at the end (one plt.show() for the lot).
+        log_scale: log y-axis on the population chart (handy when prey dwarf predators)."""
+        if not self.total_dataframe["time"]:
+            print("No samples logged yet - call logger.log_total_dataframe(world) first.")
+            return {}
+        if save_dir:
+            os.makedirs(save_dir, exist_ok=True)
+
+        def path(name):
+            return os.path.join(save_dir, name + ".png") if save_dir else None
+
+        self.summary()
+        figures = {
+            "population": self.plot_population(log_scale=log_scale, save_path=path("population"), show=False),
+            "births_deaths": self.plot_births_deaths(save_path=path("births_deaths"), show=False),
+            "genes": self.plot_genes(save_path=path("genes"), show=False),
+            "vitals": self.plot_vitals(save_path=path("vitals"), show=False),
+            "activity": self.plot_activity(save_path=path("activity"), show=False),
+            "generations": self.plot_generations(save_path=path("generations"), show=False),
+            "lifespans": self.plot_lifespans(save_path=path("lifespans"), show=False),
+            "selection": self.plot_selection(save_path=path("selection"), show=False),
+        }
+        figures = {name: fig for name, fig in figures.items() if fig is not None}
+        if show and figures:
+            plt.show()
+        return figures
+
+    def plot_avg_speed(self, show=True, **kwargs):
+        """Old name, kept so existing calls still work. It now shows every stat (plot_all_stats)."""
+        return self.plot_all_stats(show=show, **kwargs)

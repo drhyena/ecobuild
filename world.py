@@ -69,8 +69,11 @@ class World:
 
         # Owned by the world. The main loop assigns its own lists here, so these
         # must be the same list objects it appends to (never copies).
-        self.creature_list = []
-        self.veg_list = []
+        self.creature_list = {}
+        self.veg_list = {}
+
+        self.position_dict = {}
+        self.v_position_dict = {}  
 
     # --------------------------------------------------
     # WORLD GENERATION
@@ -175,6 +178,40 @@ class World:
 
         for n, (start, end) in enumerate(routes):
             self._draw_river(grid, start, end, offset=100 + n * 53.1)
+
+
+
+    def set_position_dict(self):
+        for pos in self.land_tiles:
+            self.position_dict[pos] = None
+
+        for c in self.creature_list:
+            self.position_dict[(c.x,c.y)] = c
+
+    def set_v_position_dict(self):
+        for pos in self.land_tiles:
+            self.v_position_dict[pos] = None
+
+        for c in self.veg_list:
+            self.v_position_dict[(c.v_x,c.v_y)] = c
+
+    def update_position_dict(self,c):
+        old = (c.prev_x, c.prev_y)
+        if self.position_dict.get(old) is c:  # clear the tile it left (unless someone else now stands there)
+            self.position_dict[old] = None
+        self.position_dict[c.x,c.y] = c
+
+    def update_v_position_dict(self,c):
+        self.v_position_dict[c.v_x,c.v_y] = c
+
+
+    def remove_c_position_from_dict(self,c):
+        if self.position_dict.get((c.x, c.y)) is c:  # don't wipe another creature sharing this tile
+            self.position_dict[c.x,c.y] = None
+
+    def remove_v_position_from_dict(self,c):
+        self.v_position_dict[c.v_x,c.v_y] = None
+
 
     def _draw_river(self, grid, start, end, offset):
         w, h = self.grid_width, self.grid_height
@@ -361,9 +398,14 @@ class World:
         min_distance = float("inf")
 
         perceived_set = set(perceived_tiles)
+        viable_candidates = []
 
-        for v in self.veg_list:
-            if v.alive and (v.v_x, v.v_y) in perceived_set:
+        for v in perceived_set:
+            if self.v_position_dict.get(v) is not None:
+                viable_candidates.append(self.v_position_dict.get(v))
+ 
+        for v in viable_candidates:
+            if v.alive:
                 dx = x - v.v_x
                 dy = y - v.v_y
                 distance = dx * dx + dy * dy
@@ -372,7 +414,6 @@ class World:
                     min_distance = distance
                     target_veg = v
 
-        print("veg:", target_veg.alive if target_veg is not None else "none")
         return target_veg
 
     def find_closest_shore(self, x, y, perceived_tiles):
@@ -405,12 +446,20 @@ class World:
                 continue  # already paired up
             if other.status != "wandering":
                 continue  # busy (hungry, thirsty, fleeing, hunting, ...)
-            if not c.reproductionmanager.check_if_mature(other):
-                continue
+            rm = c.reproductionmanager
+            if not rm.check_if_ready_to_seek_mate(other):
+                continue  # not mature yet, or still on its mating cooldown
+            if not rm.check_if_well_fed(other):
+                continue  # couldn't afford the cost of mating
+            if rm.is_rejected(c, other):
+                continue  # pairing with it recently failed
 
             dx = other.x - c.x
             dy = other.y - c.y
             distance = dx * dx + dy * dy  # squared distance (faster than sqrt)
+
+            if distance > c.reproductionmanager.MAX_MATE_DISTANCE ** 2:
+                continue  # too far away to start mating with
 
             if distance < min_distance:
                 min_distance = distance
@@ -446,22 +495,17 @@ class World:
     def check_for_creatures_in_perspective_tiles(self, creature):
 
         visible_creatures = []
+        perceived_tiles = creature.targeting.perceived_tiles
+        other = None
 
-        # Ensure creature has perceived tiles
-
-        for other in self.creature_list:
-
-            # Skip self
-            if other is creature:
+        for c in perceived_tiles:
+            other = self.position_dict.get(c)
+            if other is None or other is creature:
                 continue
-
-            # Skip dead creatures
-            if not other.alive:
+            if not other.vitals.alive:
                 continue
+            visible_creatures.append(other)
 
-            # If other creature is inside perspective
-            if (other.x, other.y) in creature.targeting.perceived_tiles:
-                visible_creatures.append(other)
 
         return set(visible_creatures)
     
@@ -485,3 +529,18 @@ class World:
                     best_tile = (nx, ny)
 
         return best_tile
+
+
+
+
+    def set_max_tiles(self,v):
+            deviations = {(x, y) for x in range(-v.max_perceivable_radius,v.max_perceivable_radius + 1) 
+                        for y in range(-v.max_perceivable_radius, v.max_perceivable_radius + 1)}   
+            temp_tiles = []
+
+            for x in deviations:
+                if self.is_walkable(x[0]+v.v_x,x[1]+v.v_y):
+                    temp_tiles.append((x[0] + v.v_x, x[1]+ v.v_y))
+
+
+            v.tiles_within_max_perceivable_radius = set( temp_tiles )

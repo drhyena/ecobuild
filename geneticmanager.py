@@ -1,5 +1,5 @@
 import random
-
+import math
 
 class GeneticManager:
     # Oversees how genes get passed on. Acts as a balancer of sorts: without balance, creatures simply get stronger, faster, longer ranged etc
@@ -7,7 +7,7 @@ class GeneticManager:
     def __init__(self):
         self.mutation_chance = 0.5   # chance that each evolving gene mutates at a birth
         self.mutation_range = 0.10   # biggest change is +/- this fraction of the gene's value
-        self.compensate_nerfs = False  # if True, a nerf gives back the reverse tradeoff
+        self.compensate_nerfs = True  # if True, a nerf gives back the reverse tradeoff
 
         # Only these genes mutate. Everything else numeric (generation, energy_*) is just inherited.
         self.evolving = {
@@ -95,6 +95,7 @@ class GeneticManager:
         """Step 2. Each evolving gene has a chance to change by up to +/- mutation_range of its
         own value, so big and small genes mutate on the same scale. Whole-number genes change
         in whole steps: a small change rounds up or down at random (in proportion to its size),
+        
         so they still mutate, just rarely when the gene is small."""
         mutated = dict(pre)
         for gene in pre:
@@ -146,7 +147,8 @@ class GeneticManager:
         child = type(c)(c.x, c.y, c.world, c.interaction_manager,c.log)
         for name, value in genome.items():
             if isinstance(getattr(c.genome, name), int):  # keep int genes as ints
-                value = max(1, round(value))
+                lo = math.floor(value)
+                value = max(1, lo + (random.random() < value - lo))
             setattr(child.genome, name, value)
         child.genome.generation = self.set_generation(c)
         child.logging.parents = {c.genome.id,c.reproduction.current_mate.genome.id}

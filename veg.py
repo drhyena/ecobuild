@@ -5,6 +5,11 @@ class Veg:
         self.v_y = v_y
         self.alive = True
         self.claimed_by = None
+        self.max_perceivable_radius = 25
+        self.tiles_within_max_perceivable_radius = []
+
+
+
 
     
     
