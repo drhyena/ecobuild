@@ -60,6 +60,24 @@ class Reproduction:
 
 
 @dataclass
+class Migration:
+    """Settings and state for the "migrating" behaviour. A creature that has gone too long without
+    water, food or a mate walks in straight lines until what it is missing comes into view."""
+    # --- settings ---
+    migration_initialization_time: float = 20  # s since it last got what it is missing before it may migrate
+    single_direction_duration: float = 5       # s to keep walking one way before picking a new direction
+    direction_memory: int = 3                  # a direction can't be picked again until this many others have been used
+
+    # --- state ---
+    seeking: str = None                        # what it is migrating for: "water", "food" or "mate"
+    direction: tuple = None                    # current heading (dx, dy), one of the 8 neighbouring tiles
+    direction_started: float = 0               # sim_time the current heading was picked
+    previous_directions: list = field(default_factory=list)  # most recent headings, oldest first (see direction_memory)
+    # sim_time it last drank / ate / mated (set to the birth time when the creature is created)
+    last_found: dict = field(default_factory=lambda: {"water": 0.0, "food": 0.0, "mate": 0.0})
+
+
+@dataclass
 class Logging:
     birth_time : float = 0
     death_time: float = 0
