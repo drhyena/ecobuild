@@ -15,6 +15,9 @@ class Movement:
         if c.status == "mating":
             self.mating_movement(c)
             return
+        if c.status == "migrating":
+            self.migrate_movement(c)
+            return
         if c.targeting.target is None:
             self.wander_randomly(c)
         else:
@@ -28,6 +31,51 @@ class Movement:
         at the mating point for the partner."""
         if c.targeting.path:
             self.follow_path(c)
+
+    # ---------------- migration ----------------
+
+    COMPASS = [(-1, -1), (0, -1), (1, -1), (-1, 0), (1, 0), (-1, 1), (0, 1), (1, 1)]
+
+    def handle_migrate_state(self, c):
+        """Called from status_checker while migrating. Walks the current heading one tile at a
+        time. A new heading is picked when this one has run for single_direction_duration, or as
+        soon as the next tile isn't walkable (water, map edge)."""
+        if c.targeting.target is not None:
+            return  # still finishing a step: move_to_tile clears the target when it lands
+
+        m = c.migration
+        if m.direction is None or c.world.sim_time - m.direction_started >= m.single_direction_duration:
+            self.pick_migration_direction(c)
+        if m.direction is not None and not c.world.is_walkable(c.x + m.direction[0], c.y + m.direction[1]):
+            self.pick_migration_direction(c)  # reached water: pick ANOTHER direction
+        if m.direction is None:
+            return  # boxed in, nowhere to go
+
+        c.targeting.target = (c.x + m.direction[0], c.y + m.direction[1])
+
+    def pick_migration_direction(self, c):
+        """Picks a random heading out of the 8 directions. It can't be one of the last
+        `direction_memory` headings, and the tile straight ahead must be walkable. If that leaves
+        nothing, the memory rule is dropped, and failing that any walkable direction will do.
+        The memory is a list rather than a set because it has to know which headings are the
+        most recent."""
+        m = c.migration
+        walkable = [d for d in self.COMPASS if c.world.is_walkable(c.x + d[0], c.y + d[1])]
+        pool = [d for d in walkable if d not in m.previous_directions]
+        pool = pool or [d for d in walkable if d != m.direction] or walkable
+        if not pool:
+            m.direction = None
+            return
+
+        m.direction = random.choice(pool)
+        m.direction_started = c.world.sim_time
+        m.previous_directions.append(m.direction)
+        m.previous_directions = m.previous_directions[-m.direction_memory:] if m.direction_memory > 0 else []
+
+    def migrate_movement(self, c):
+        if not c.targeting.target:
+            return
+        self.move_to_tile(c, c.targeting.target)
 
     def notify_travel(self, c, target):
         """Called by interaction manager to assign a travel target."""
@@ -192,6 +240,7 @@ class ThirstBehavior:
         if c.status == "thirsty":
             c.vitals.thirst = 100
             c.logging.times_drank += 1
+            c.migration.last_found["water"] = c.world.sim_time
 
     def handle_thirsty_state(self, c):
         if c.targeting.target:
@@ -210,6 +259,8 @@ class PreyMovement(Movement):
             self.flee_movement(c)
         elif c.status == "retreating":
             self.retreat_movement(c)
+        elif c.status == "migrating":
+            self.migrate_movement(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "fleeing":
@@ -323,6 +374,7 @@ class PreyHungerBehavior:
         if c.status == "hungry":
             c.vitals.hunger = min(c.vitals.hunger + 40,100)
             c.logging.times_ate += 1
+            c.migration.last_found["food"] = c.world.sim_time
 
     def handle_hungry_state(self, c):
         if c.targeting.target:
@@ -343,6 +395,8 @@ class PredatorMovement(Movement):
     def movement_decider(self, c):
         if c.status == "mating":
             self.mating_movement(c)
+        elif c.status == "migrating":
+            self.migrate_movement(c)
         elif c.targeting.target is None:
             self.wander_randomly(c)
         elif c.status == "hunting":
@@ -407,6 +461,7 @@ class PredatorHungerBehavior:
         if c.status in ["hungry", "hunting"]:
             c.vitals.hunger = 100
             c.logging.times_ate += 1
+            c.migration.last_found["food"] = c.world.sim_time
             c.logging.creatures_killed +=1
             c.logging.times_hunted_succesfully += 1
             c.targeting.target_creature.logging.cause_of_death = "hunted"
