@@ -4,7 +4,7 @@ import random
 class ReproductionManager:
     # A mate must be this close (in tiles, straight line) to be picked. Kept well under
     # the perception radius, which would otherwise pair creatures from across the map.
-    MAX_MATE_DISTANCE = 10
+    MAX_MATE_DISTANCE = 7
     # The walk to the partner (A* path length, in tiles) may not exceed this, so a lake or
     # wall between two nearby creatures can't turn into a long trek.
     MAX_MATE_PATH = 10
@@ -17,7 +17,7 @@ class ReproductionManager:
     # Print a line whenever a pairing forms, is dropped, or produces offspring.
     DEBUG = True
     # A pairing that hasn't ended in mating after this many seconds is dropped.
-    MATING_TIMEOUT = 10
+    MATING_TIMEOUT = 20
     # After a failed pairing (unreachable, too far to walk, timed out) the two won't be
     # paired with each other again for this many seconds.
     REJECT_TIME = 30
@@ -179,6 +179,7 @@ class ReproductionManager:
         self.cancel_mating(c)
         for parent in (c, partner):
             parent.reproduction.time_since_last_mating = 0
+            parent.migration.last_found["mate"] = c.world.sim_time
             parent.vitals.hunger = max(0, parent.vitals.hunger - self.MATE_COST)
             parent.vitals.thirst = max(0, parent.vitals.thirst - self.MATE_COST)
 
