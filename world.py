@@ -444,7 +444,7 @@ class World:
                 continue  # only same-species mates
             if other.reproduction.current_mate is not None:
                 continue  # already paired up
-            if other.status != "wandering":
+            if other.status not in ("wandering", "migrating"):
                 continue  # busy (hungry, thirsty, fleeing, hunting, ...)
             rm = c.reproductionmanager
             if not rm.check_if_ready_to_seek_mate(other):
