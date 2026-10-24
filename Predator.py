@@ -36,6 +36,10 @@ class Predator(Creature):
             self.status = "mating"
             return
 
+        # Migrating
+        if self.update_migration():
+            return
+
         # Normal need-based logic
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
@@ -89,6 +93,8 @@ class Predator(Creature):
             self.thirst_behavior.handle_thirsty_state(self)
         elif self.status == "hunting":
             self.hunting_behavior.handle_hunting_state(self)
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
 
