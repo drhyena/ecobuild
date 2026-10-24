@@ -1,5 +1,5 @@
 import pygame
-from CreatureData import Vitals, Genome, Targeting, Reproduction, Logging
+from CreatureData import Vitals, Genome, Targeting, Reproduction, Migration, Logging
 from CreatureBehaviors import PreyMovement, ThirstBehavior, PreyHungerBehavior, ReproductionBehavior
 from reproductionmanager import ReproductionManager
 from geneticmanager import GeneticManager
@@ -21,7 +21,7 @@ class Creature:
                  targeting=None, reproduction=None,
                  movement=None, hunger_behavior=None, thirst_behavior=None,
                  hunting_behavior=None, reproductionmanager=None,
-                 reproduction_behavior=None, geneticmanager = None, ):
+                 reproduction_behavior=None, geneticmanager = None, migration=None, ):
         self.x, self.y = x, y
         self.world = world
         self.px = x*self.world.tile_size + self.world.tile_size//2
@@ -43,6 +43,10 @@ class Creature:
         self.geneticmanager = geneticmanager if geneticmanager is not None else GeneticManager()
 
         self.logging = logging if logging is not None else Logging()
+
+        self.migration = migration if migration is not None else Migration()
+        # every "last got it" clock starts at birth: a newborn hasn't been without anything for long
+        self.migration.last_found = {k: self.world.sim_time for k in ("water", "food", "mate")}
 
 
         self.signal = {"type": None, "from": None, "tile": None}
@@ -124,8 +128,84 @@ class Creature:
         return self.world.find_closest_veg(
             self.x, self.y, self.targeting.perceived_tiles) is not None
 
+    # -------------------------
+    # MIGRATION (state helpers)
+    # -------------------------
+
+    def migration_need(self):
+        """What the creature is missing right now: "water", "food", "mate" or None.
+        Water and food come first; a mate only counts once it is fed and ready."""
+        if self.vitals.thirst < self.genome.thirst_threshold:
+            return "water"
+        if self.vitals.hunger < self.genome.hunger_threshold:
+            return "food"
+        if self.reproduction.current_mate is None and self.check_if_ready_for_a_mate():
+            return "mate"
+        return None
+
+    def sees_need(self, need):
+        """True if what it is missing is inside its perception right now."""
+        if need == "water":
+            return self.world.find_closest_shore(
+                self.x, self.y, self.targeting.perceived_tiles) is not None
+        if need == "food":
+            return self.sees_food()  # veg for prey, prey for predators
+        if need == "mate":
+            return self.world.find_closest_mate(self) is not None
+        return False
+
+    def start_migration(self, need):
+        m, t = self.migration, self.targeting
+        m.seeking = need
+        m.direction = None  # the movement picks the first heading
+        m.direction_started = self.world.sim_time
+        m.previous_directions = []
+        self.status = "migrating"
+        t.target = None
+        t.target_veg = None
+        t.path = []
+        t.pixel_target = None
+
+    def end_migration(self):
+        """Forget the heading and its history. Whoever ends migration sets the new status."""
+        m = self.migration
+        m.seeking = None
+        m.direction = None
+        m.previous_directions = []
+
+    def update_migration(self):
+        """Starts, continues or ends migration. Returns True while the creature is migrating, so
+        the caller skips its normal need logic.
+
+        Starts when the creature is missing something, hasn't got it for
+        migration_initialization_time, and can't see it. Ends when what it is missing comes into
+        view (or it isn't missing anything any more); the normal need logic then picks the state."""
+        m = self.migration
+        need = self.migration_need()
+
+        if self.status == "migrating":
+            if need is None or self.sees_need(need):
+                self.end_migration()
+                self.status = "wandering"
+                self.targeting.target = None  # drop the step it was on; the need logic takes over
+                return False
+            m.seeking = need  # what it is missing can change on the way (e.g. thirst sets in)
+            return True
+
+        if need is None or self.targeting.target:
+            return False  # nothing missing, or already heading for something
+        if self.world.sim_time - m.last_found[need] < m.migration_initialization_time:
+            return False
+        if self.sees_need(need):
+            return False
+
+        self.start_migration(need)
+        return True
+
     def update_state(self):
         self.validate_mate()
+        if self.reproduction.current_mate is None and self.update_migration():
+            return
         self.status = self.get_essential_state_decision()
         self.vitals.age = self.world.sim_time - self.logging.birth_time
         if self.reproduction.current_mate is not None and self.reproductionmanager.check_if_both_are_ready_to_reproduce():
@@ -235,6 +315,8 @@ class Creature:
             self.thirst_behavior.handle_thirsty_state(self)
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
         else:
             self.targeting.target = None
 
