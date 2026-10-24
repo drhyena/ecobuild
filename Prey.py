@@ -104,6 +104,10 @@ class Prey(Creature):
             self.status = "mating"
             return
 
+        # Migrating. Fleeing and dispersing/retreating are handled above, so they interrupt it
+        if self.update_migration():
+            return
+
         if not self.targeting.target:
             if self.vitals.thirst < self.genome.thirst_threshold:
                 self.status = "thirsty"
@@ -135,6 +139,9 @@ class Prey(Creature):
 
         elif self.status == "retreating":
             self.movement.handle_retreat_state(self)
+
+        elif self.status == "migrating":
+            self.movement.handle_migrate_state(self)
 
         elif self.status == "mating":
             self.reproduction_behavior.handle_mating_state(self)
